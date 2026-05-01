@@ -73,7 +73,15 @@ export function CartDrawer() {
                       </button>
                     </div>
                     <p className="font-urdu text-sm text-gray-400 mt-1">{item.name_ur}</p>
-                    <p className="font-urdu text-acid-green mt-1 font-bold">{item.size}</p>
+                    <div className="flex gap-2 mt-1">
+                      <p className="font-urdu text-acid-green font-bold">{item.size}</p>
+                      {item.color && (
+                        <>
+                          <span className="text-gray-600">•</span>
+                          <p className="font-sans text-xs font-bold uppercase text-pure-white flex items-center">{item.color}</p>
+                        </>
+                      )}
+                    </div>
                   </div>
                   
                   <div className="flex justify-between items-end mt-4">

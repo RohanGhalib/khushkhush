@@ -23,10 +23,7 @@ export function Navbar() {
         <Link href="/shop" className="font-sans font-bold text-pure-white hover:text-acid-green uppercase">
           Shop
         </Link>
-        <Link href="/collections/meme" className="font-sans font-bold text-pure-white hover:text-acid-green uppercase hidden md:block">
-          Meme
-        </Link>
-        <Link href="/account" className="font-sans font-bold text-pure-white hover:text-acid-green uppercase hidden sm:block">
+        <Link href="/account" className="font-sans font-bold text-pure-white hover:text-acid-green uppercase">
           Account
         </Link>
         

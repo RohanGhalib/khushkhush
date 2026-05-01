@@ -16,6 +16,7 @@ export default function CheckoutPage() {
   const router = useRouter();
   
   const [loading, setLoading] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
   const [formData, setFormData] = useState({
     fullName: user?.displayName || "",
     email: user?.email || "",
@@ -25,12 +26,12 @@ export default function CheckoutPage() {
     postalCode: "",
   });
 
-  // Redirect if cart is empty
+  // Redirect if cart is empty (but not if we just finished checkout)
   useEffect(() => {
-    if (items.length === 0) {
+    if (items.length === 0 && !isSuccess) {
       router.push("/shop");
     }
-  }, [items, router]);
+  }, [items, router, isSuccess]);
 
   if (items.length === 0) return null;
 
@@ -46,7 +47,16 @@ export default function CheckoutPage() {
       const orderData = {
         userId: user?.uid || null,
         customerInfo: formData,
-        items: items,
+        // Map items to remove any undefined fields (like color if not selected)
+        items: items.map(item => {
+          const cleanedItem: any = { ...item };
+          Object.keys(cleanedItem).forEach(key => {
+            if (cleanedItem[key] === undefined) {
+              delete cleanedItem[key];
+            }
+          });
+          return cleanedItem;
+        }),
         subtotal: getCartTotal(),
         shipping: 200, // Fixed shipping
         total: getCartTotal() + 200,
@@ -75,6 +85,7 @@ export default function CheckoutPage() {
       }
 
       // Clear cart and redirect
+      setIsSuccess(true);
       clearCart();
       router.push(`/order/${docRef.id}/confirmed`);
     } catch (error) {

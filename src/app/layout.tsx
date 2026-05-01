@@ -16,8 +16,12 @@ const notoNastaliq = Noto_Nastaliq_Urdu({
 });
 
 export const metadata: Metadata = {
-  title: "KhushKhush. | Gen-z We're Coming!",
-  description: "Brutalist streetwear. Massive type. Neon on black. Urdu + English bilingual.",
+  title: {
+    default: "KhushKhush. | Gen-z Streetwear & Meme Culture",
+    template: "%s | KhushKhush."
+  },
+  description: "Aggressive Gen-z streetwear. Meme-inspired drops. Brutalist aesthetic. Premium quality shirts, hoodies, and accessories.",
+  keywords: ["streetwear", "gen-z fashion", "meme clothing", "pakistan fashion", "brutalist design", "khushkhush"],
 };
 
 export default function RootLayout({

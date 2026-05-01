@@ -2,11 +2,12 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 export interface CartItem {
-  id: string; // usually slug + "-" + size
+  id: string; // usually slug + "-" + size + "-" + color
   slug: string;
   name_en: string;
   name_ur: string;
   size: string; // Urdu size label
+  color?: string;
   price: number;
   image: string;
   qty: number;

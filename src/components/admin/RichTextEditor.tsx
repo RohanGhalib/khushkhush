@@ -13,6 +13,7 @@ export function RichTextEditor({ content, onChange }: RichTextEditorProps) {
   const editor = useEditor({
     extensions: [StarterKit],
     content: content,
+    immediatelyRender: false,
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
     },

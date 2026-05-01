@@ -1,21 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { ImageUploader } from "@/components/admin/ImageUploader";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
 
-export default function NewProductPage() {
+type Props = {
+  params: Promise<{ slug: string }>;
+};
+
+export default function EditProductPage({ params }: Props) {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const { slug } = use(params);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  
   const [formData, setFormData] = useState({
     name_en: "",
     name_ur: "",
-    slug: "",
     price: "",
     comparePrice: "",
     description: "",
@@ -32,19 +38,38 @@ export default function NewProductPage() {
     colors: "",
   });
 
-  const handleSlugify = (text: string) => {
-    return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-  };
+  useEffect(() => {
+    async function fetchProduct() {
+      try {
+        const docRef = doc(db, "products", slug);
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+          const data = snap.data();
+          setFormData({
+            ...formData,
+            ...data,
+            price: data.price?.toString() || "",
+            comparePrice: data.comparePrice?.toString() || "",
+            tags: data.tags?.join(", ") || "",
+            colors: data.colors?.join(", ") || "",
+          });
+        } else {
+          alert("Product not found");
+          router.push("/admin/products");
+        }
+      } catch (error) {
+        console.error("Error fetching product:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchProduct();
+  }, [slug]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target as HTMLInputElement;
     const checked = (e.target as HTMLInputElement).checked;
-
-    if (name === "name_en" && !formData.slug) {
-      setFormData(prev => ({ ...prev, [name]: value, slug: handleSlugify(value) }));
-    } else {
-      setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
-    }
+    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   };
 
   const handleSizeChange = (key: keyof typeof formData.sizes, value: string) => {
@@ -56,34 +81,40 @@ export default function NewProductPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.slug) return alert("Slug is required");
-    setLoading(true);
+    setSaving(true);
 
     try {
-      const productRef = doc(db, "products", formData.slug);
-      await setDoc(productRef, {
+      const productRef = doc(db, "products", slug);
+      await updateDoc(productRef, {
         ...formData,
         price: Number(formData.price),
         comparePrice: formData.comparePrice ? Number(formData.comparePrice) : null,
         tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean),
         colors: formData.colors.split(',').map(c => c.trim()).filter(Boolean),
-        createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
-      alert("Product created!");
+      alert("Product updated!");
       router.push("/admin/products");
     } catch (error) {
       console.error(error);
-      alert("Failed to create product");
+      alert("Failed to update product");
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="p-8 flex items-center justify-center min-h-[50vh]">
+        <p className="font-twenly text-4xl text-acid-green animate-pulse">LOADING...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8 max-w-5xl mx-auto">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="font-twenly text-4xl text-pure-white tracking-wide">NEW PRODUCT.</h1>
+        <h1 className="font-twenly text-4xl text-pure-white tracking-wide uppercase">Edit Product.</h1>
         <Button onClick={() => router.back()} variant="outline">CANCEL</Button>
       </div>
 
@@ -105,8 +136,8 @@ export default function NewProductPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase mb-2 text-gray-400">Slug</label>
-                <Input name="slug" value={formData.slug} onChange={handleChange} required />
+                <label className="block text-xs font-bold uppercase mb-2 text-gray-400 opacity-50">Slug (Cannot be changed)</label>
+                <Input value={slug} disabled className="opacity-50" />
               </div>
             </div>
 
@@ -146,22 +177,16 @@ export default function NewProductPage() {
             <div className="bg-card-bg p-6 border-2 border-gray-800 space-y-4">
               <h2 className="font-sans font-bold uppercase text-acid-green mb-4">Inventory (Sizes)</h2>
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold uppercase mb-2 text-gray-400 font-urdu">بڑے لوگ (Large)</label>
-                  <Input type="number" value={formData.sizes.barray_log} onChange={(e) => handleSizeChange("barray_log", e.target.value)} />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold uppercase mb-2 text-gray-400 font-urdu">درمیانے افراد (Medium)</label>
-                  <Input type="number" value={formData.sizes.darmiane} onChange={(e) => handleSizeChange("darmiane", e.target.value)} />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold uppercase mb-2 text-gray-400 font-urdu">نوجوان (Small)</label>
-                  <Input type="number" value={formData.sizes.nojawan} onChange={(e) => handleSizeChange("nojawan", e.target.value)} />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold uppercase mb-2 text-gray-400 font-urdu">موٹے افراد (XL)</label>
-                  <Input type="number" value={formData.sizes.mote_afraad} onChange={(e) => handleSizeChange("mote_afraad", e.target.value)} />
-                </div>
+                {Object.keys(formData.sizes).map((sizeKey) => (
+                   <div key={sizeKey}>
+                    <label className="block text-xs font-bold uppercase mb-2 text-gray-400 capitalize">{sizeKey.replace('_', ' ')}</label>
+                    <Input 
+                      type="number" 
+                      value={formData.sizes[sizeKey as keyof typeof formData.sizes]} 
+                      onChange={(e) => handleSizeChange(sizeKey as keyof typeof formData.sizes, e.target.value)} 
+                    />
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -184,12 +209,12 @@ export default function NewProductPage() {
 
               <div>
                 <label className="block text-xs font-bold uppercase mb-2 text-gray-400">Tags (Comma separated)</label>
-                <Input name="tags" value={formData.tags} onChange={handleChange} placeholder="meme, cool, trending" />
+                <Input name="tags" value={formData.tags} onChange={handleChange} />
               </div>
 
               <div>
                 <label className="block text-xs font-bold uppercase mb-2 text-gray-400">Colors (Comma separated)</label>
-                <Input name="colors" value={formData.colors} onChange={handleChange} placeholder="Black, White, Neon" />
+                <Input name="colors" value={formData.colors} onChange={handleChange} />
               </div>
 
               <div className="flex items-center gap-3 mt-4">
@@ -207,8 +232,8 @@ export default function NewProductPage() {
         </div>
 
         <div className="pt-6 border-t-2 border-gray-800">
-          <Button type="submit" variant="primary" className="w-full md:w-auto md:px-16" disabled={loading}>
-            {loading ? "SAVING..." : "SAVE PRODUCT"}
+          <Button type="submit" variant="primary" className="w-full md:w-auto md:px-16" disabled={saving}>
+            {saving ? "SAVING..." : "UPDATE PRODUCT"}
           </Button>
         </div>
       </form>
