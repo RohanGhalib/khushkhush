@@ -16,7 +16,8 @@ export function Navbar() {
   return (
     <nav className="fixed top-0 w-full z-50 bg-void-black/90 backdrop-blur-sm border-b-2 border-pure-white px-6 py-4 flex items-center justify-between">
       <Link href="/" className="font-twenly text-3xl text-acid-green hover:text-pure-white transition-colors">
-        KhUShKhUSh.
+        <span className="md:hidden">KK.</span>
+        <span className="hidden md:inline">KhUShKhUSh.</span>
       </Link>
       
       <div className="flex items-center gap-6">

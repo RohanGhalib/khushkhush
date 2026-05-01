@@ -39,8 +39,9 @@ export function HomeClient() {
     <main className="flex flex-col min-h-screen">
       <section className="flex flex-col items-center justify-center p-8 relative overflow-hidden min-h-[90vh]">
         <div className="z-10 flex flex-col items-center justify-center text-center">
-          <h1 className="font-twenly text-acid-green leading-none mb-6 tracking-tight" style={{ fontSize: 'clamp(80px, 14vw, 180px)' }}>
-            KhUShKhUSh.
+          <h1 className="font-twenly text-acid-green leading-none mb-6 tracking-tight flex flex-col md:block" style={{ fontSize: 'clamp(60px, 18vw, 180px)' }}>
+            <span className="block md:inline">KhUSh</span>
+            <span className="block md:inline">KhUSh.</span>
           </h1>
           <p className="text-pure-white text-xl md:text-3xl font-medium mb-12 animate-fade-in-up tracking-wider">
             Gen-z We're Coming!
