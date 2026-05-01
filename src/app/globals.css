@@ -33,13 +33,22 @@ body {
 }
 
 .brutalist-border {
-  border: 2px solid var(--pure-white);
+  border: 2px solid var(--gray-800);
   box-shadow: 4px 4px 0px var(--acid-green);
 }
 
 .brutalist-border-green {
   border: 2px solid var(--acid-green);
-  box-shadow: 4px 4px 0px var(--pure-white);
+  box-shadow: 4px 4px 0px var(--void-black);
+}
+
+@keyframes patternMove {
+  0% { transform: translate(0, 0); }
+  100% { transform: translate(400px, 300px); }
+}
+
+.animate-pattern {
+  animation: patternMove 60s linear infinite;
 }
 
 .marquee-container {

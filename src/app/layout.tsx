@@ -55,7 +55,7 @@ export default function RootLayout({
               </text>
             </pattern>
           </defs>
-          <rect width="100%" height="100%" fill="url(#diagonal-text)" />
+          <rect width="100%" height="100%" fill="url(#diagonal-text)" className="animate-pattern" />
         </svg>
         <AuthProvider>
           <StoreLayout>

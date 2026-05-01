@@ -5,6 +5,8 @@ import { useCartStore } from "@/lib/cart";
 import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
+import { Heart } from "lucide-react";
+import { useWishlistStore } from "@/lib/wishlistStore";
 
 interface Product {
   slug: string;
@@ -36,6 +38,8 @@ export function ProductView({ product }: { product: Product }) {
   const [selectedSize, setSelectedSize] = useState("");
   const [selectedColor, setSelectedColor] = useState("");
   const addItem = useCartStore(state => state.addItem);
+  const { toggleItem, isInWishlist } = useWishlistStore();
+  const isWishlisted = isInWishlist(product.slug);
 
   const isSoldOut = product.status === "Sold Out";
   const isOnSale = product.comparePrice && product.comparePrice > product.price;
@@ -183,14 +187,34 @@ export function ProductView({ product }: { product: Product }) {
             </div>
           )}
 
-          <Button 
-            variant="primary" 
-            className="w-full h-16 text-xl shadow-[6px_6px_0px_#FFFFFF] mb-12"
-            disabled={isSoldOut || !selectedSize || (product.colors && product.colors.length > 0 && !selectedColor)}
-            onClick={handleAddToCart}
-          >
-            {isSoldOut ? "SOLD OUT" : !selectedSize ? "SELECT A SIZE" : (product.colors && product.colors.length > 0 && !selectedColor) ? "SELECT A COLOR" : "ADD TO CART"}
-          </Button>
+          <div className="flex gap-4 mb-12">
+            <Button 
+              variant="primary" 
+              className="flex-1 h-16 text-xl shadow-[6px_6px_0px_#FFFFFF]"
+              disabled={isSoldOut || !selectedSize || (product.colors && product.colors.length > 0 && !selectedColor)}
+              onClick={handleAddToCart}
+            >
+              {isSoldOut ? "SOLD OUT" : !selectedSize ? "SELECT A SIZE" : (product.colors && product.colors.length > 0 && !selectedColor) ? "SELECT A COLOR" : "ADD TO CART"}
+            </Button>
+            
+            <button 
+              onClick={() => toggleItem({
+                slug: product.slug,
+                name_en: product.name_en,
+                name_ur: product.name_ur,
+                price: product.price,
+                image: product.images[0] || ""
+              })}
+              className={cn(
+                "w-16 h-16 flex items-center justify-center border-4 transition-all",
+                isWishlisted 
+                  ? "bg-acid-green border-acid-green text-void-black" 
+                  : "bg-void-black border-gray-800 text-pure-white hover:border-acid-green"
+              )}
+            >
+              <Heart size={28} fill={isWishlisted ? "currentColor" : "none"} />
+            </button>
+          </div>
 
           <div className="prose prose-invert max-w-none font-sans text-gray-300">
             <h3 className="font-sans font-bold uppercase text-pure-white mb-4 tracking-widest border-b border-gray-800 pb-2">

@@ -1,6 +1,9 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/Button";
+import { Heart } from "lucide-react";
+import { useWishlistStore } from "@/lib/wishlistStore";
+import { cn } from "@/lib/utils";
 
 interface ProductCardProps {
   slug: string;
@@ -15,6 +18,13 @@ interface ProductCardProps {
 export function ProductCard({ slug, name_en, name_ur, price, comparePrice, image, status }: ProductCardProps) {
   const isSoldOut = status === "Sold Out";
   const isOnSale = comparePrice && comparePrice > price;
+  const { toggleItem, isInWishlist } = useWishlistStore();
+  const isWishlisted = isInWishlist(slug);
+
+  const handleWishlist = (e: React.MouseEvent) => {
+    e.preventDefault();
+    toggleItem({ slug, name_en, name_ur, price, image });
+  };
 
   return (
     <Link href={`/product/${slug}`} className="group block bg-void-black border-2 border-gray-800 hover:border-acid-green transition-colors relative overflow-hidden flex flex-col h-full">
@@ -31,6 +41,18 @@ export function ProductCard({ slug, name_en, name_ur, price, comparePrice, image
           </span>
         )}
       </div>
+
+      <button 
+        onClick={handleWishlist}
+        className={cn(
+          "absolute top-4 right-4 z-10 p-2 border-2 transition-all",
+          isWishlisted 
+            ? "bg-acid-green border-acid-green text-void-black" 
+            : "bg-void-black/50 backdrop-blur-md border-gray-800 text-pure-white hover:border-acid-green"
+        )}
+      >
+        <Heart size={18} fill={isWishlisted ? "currentColor" : "none"} />
+      </button>
 
       {/* Image Container */}
       <div className="relative aspect-[4/5] w-full bg-[#1A1A1A] overflow-hidden">

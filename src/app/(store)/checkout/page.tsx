@@ -12,7 +12,7 @@ import Image from "next/image";
 
 export default function CheckoutPage() {
   const { items, getCartTotal, clearCart } = useCartStore();
-  const { user } = useAuthStore();
+  const { user, loading: loadingAuth } = useAuthStore();
   const router = useRouter();
   
   const [loading, setLoading] = useState(false);
@@ -26,12 +26,16 @@ export default function CheckoutPage() {
     postalCode: "",
   });
 
-  // Redirect if cart is empty (but not if we just finished checkout)
+  // Redirect if cart is empty or user not logged in
   useEffect(() => {
+    if (!loadingAuth && !user) {
+      router.push("/auth/login?redirect=/checkout");
+      return;
+    }
     if (items.length === 0 && !isSuccess) {
       router.push("/shop");
     }
-  }, [items, router, isSuccess]);
+  }, [items, router, isSuccess, user, loadingAuth]);
 
   if (items.length === 0) return null;
 
@@ -45,7 +49,7 @@ export default function CheckoutPage() {
 
     try {
       const orderData = JSON.parse(JSON.stringify({
-        userId: user?.uid || null,
+        userId: user.uid,
         customerInfo: formData,
         items: items,
         subtotal: getCartTotal(),
@@ -53,10 +57,9 @@ export default function CheckoutPage() {
         total: getCartTotal() + 200,
         status: "Pending",
         paymentMethod: "COD",
-        createdAt: new Date().toISOString(), // Use ISO string for guest compatibility if needed, or stick to serverTimestamp
+        createdAt: new Date().toISOString(),
       }));
       
-      // Re-add serverTimestamp after JSON cleaning (JSON doesn't support it)
       orderData.createdAt = serverTimestamp();
 
       const docRef = await addDoc(collection(db, "orders"), orderData);
