@@ -18,7 +18,7 @@ export default function UserOrdersPage() {
       try {
         const q = query(
           collection(db, "orders"),
-          where("userId", "==", user.uid),
+          where("userId", "==", user!.uid),
           orderBy("createdAt", "desc")
         );
         const snapshot = await getDocs(q);

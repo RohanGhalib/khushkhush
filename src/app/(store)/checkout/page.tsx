@@ -47,6 +47,7 @@ export default function CheckoutPage() {
     e.preventDefault();
     setLoading(true);
 
+    if (!user) return;
     try {
       const orderData = JSON.parse(JSON.stringify({
         userId: user.uid,
