@@ -44,26 +44,20 @@ export default function CheckoutPage() {
     setLoading(true);
 
     try {
-      const orderData = {
+      const orderData = JSON.parse(JSON.stringify({
         userId: user?.uid || null,
         customerInfo: formData,
-        // Map items to remove any undefined fields (like color if not selected)
-        items: items.map(item => {
-          const cleanedItem: any = { ...item };
-          Object.keys(cleanedItem).forEach(key => {
-            if (cleanedItem[key] === undefined) {
-              delete cleanedItem[key];
-            }
-          });
-          return cleanedItem;
-        }),
+        items: items,
         subtotal: getCartTotal(),
-        shipping: 200, // Fixed shipping
+        shipping: 200,
         total: getCartTotal() + 200,
         status: "Pending",
         paymentMethod: "COD",
-        createdAt: serverTimestamp(),
-      };
+        createdAt: new Date().toISOString(), // Use ISO string for guest compatibility if needed, or stick to serverTimestamp
+      }));
+      
+      // Re-add serverTimestamp after JSON cleaning (JSON doesn't support it)
+      orderData.createdAt = serverTimestamp();
 
       const docRef = await addDoc(collection(db, "orders"), orderData);
       
