@@ -9,6 +9,7 @@ import { db } from "@/lib/firebase";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import Image from "next/image";
+import { getUserProfile, updateUserProfile } from "@/lib/firestore";
 
 export default function CheckoutPage() {
   const { items, getCartTotal, clearCart } = useCartStore();
@@ -18,13 +19,39 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [formData, setFormData] = useState({
-    fullName: user?.displayName || "",
-    email: user?.email || "",
+    fullName: "",
+    email: "",
     phone: "",
     address: "",
     city: "",
     postalCode: "",
   });
+
+  // Pre-fill from Auth and Fetch saved profile
+  useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        fullName: prev.fullName || user.displayName || "",
+        email: prev.email || user.email || "",
+      }));
+
+      const fetchProfile = async () => {
+        const profile = await getUserProfile(user.uid);
+        if (profile) {
+          setFormData(prev => ({
+            ...prev,
+            fullName: prev.fullName || profile.name || "",
+            phone: prev.phone || profile.phone || "",
+            address: prev.address || profile.address || "",
+            city: prev.city || profile.city || "",
+            postalCode: prev.postalCode || profile.postalCode || "",
+          }));
+        }
+      };
+      fetchProfile();
+    }
+  }, [user]);
 
   // Redirect if cart is empty or user not logged in
   useEffect(() => {
@@ -64,6 +91,19 @@ export default function CheckoutPage() {
       orderData.createdAt = serverTimestamp();
 
       const docRef = await addDoc(collection(db, "orders"), orderData);
+      
+      // Update User Profile with the latest info
+      try {
+        await updateUserProfile(user.uid, {
+          name: formData.fullName,
+          phone: formData.phone,
+          address: formData.address,
+          city: formData.city,
+          postalCode: formData.postalCode,
+        });
+      } catch (profileError) {
+        console.error("Failed to update profile:", profileError);
+      }
       
       // Trigger Order Confirmation Email
       try {

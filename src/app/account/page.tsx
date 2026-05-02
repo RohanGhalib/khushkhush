@@ -5,8 +5,18 @@ import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
 import { Button } from "@/components/ui/Button";
 
+import { getUserProfile } from "@/lib/firestore";
+import { useEffect, useState } from "react";
+
 export default function AccountProfilePage() {
   const { user } = useAuthStore();
+  const [profile, setProfile] = useState<any>(null);
+
+  useEffect(() => {
+    if (user) {
+      getUserProfile(user.uid).then(setProfile);
+    }
+  }, [user]);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -28,6 +38,21 @@ export default function AccountProfilePage() {
           <p className="text-gray-400 font-sans font-bold uppercase text-sm mb-1">Email</p>
           <p className="text-pure-white font-sans text-xl font-medium">{user?.email}</p>
         </div>
+
+        {profile?.phone && (
+          <div>
+            <p className="text-gray-400 font-sans font-bold uppercase text-sm mb-1">Phone</p>
+            <p className="text-pure-white font-sans text-xl font-medium">{profile.phone}</p>
+          </div>
+        )}
+
+        {profile?.address && (
+          <div>
+            <p className="text-gray-400 font-sans font-bold uppercase text-sm mb-1">Saved Shipping Address</p>
+            <p className="text-pure-white font-sans text-lg font-medium">{profile.address}</p>
+            <p className="text-gray-400 font-sans text-sm">{profile.city} {profile.postalCode}</p>
+          </div>
+        )}
 
         <div className="mt-8 pt-8 border-t-2 border-gray-800">
           <Button variant="outline" onClick={handleLogout} className="border-red-500 text-red-500 hover:bg-red-500 hover:text-pure-white hover:border-red-500">

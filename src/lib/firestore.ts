@@ -16,7 +16,21 @@ export async function createUserDocument(uid: string, data: { email: string; nam
         createdAt: serverTimestamp(),
       });
     } catch (error) {
-      console.error("Error creating user document", error);
     }
+  }
+}
+
+export async function getUserProfile(uid: string) {
+  const userRef = doc(db, "users", uid);
+  const snapshot = await getDoc(userRef);
+  return snapshot.exists() ? snapshot.data() : null;
+}
+
+export async function updateUserProfile(uid: string, data: any) {
+  const userRef = doc(db, "users", uid);
+  try {
+    await setDoc(userRef, { ...data, updatedAt: serverTimestamp() }, { merge: true });
+  } catch (error) {
+    console.error("Error updating user document", error);
   }
 }
