@@ -1,13 +1,22 @@
 import { NextResponse } from "next/server";
-import { collection, doc, setDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { rateLimit } from "@/lib/rateLimit";
+
+const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
 
 export async function POST(req: Request) {
   try {
+    // Rate Limiting: 5 requests per hour per IP
+    const ip = req.headers.get("x-forwarded-for") || "anonymous";
+    const { success } = await rateLimit(`newsletter-${ip}`, 5, 3600000);
+    
+    if (!success) {
+      return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });
+    }
+
     const { email } = await req.json();
 
-    if (!email || !email.includes("@")) {
-      return NextResponse.json({ error: "Invalid email" }, { status: 400 });
+    if (!email || typeof email !== "string" || !EMAIL_REGEX.test(email.trim())) {
+      return NextResponse.json({ error: "Invalid email address" }, { status: 400 });
     }
 
     const docId = email.toLowerCase();

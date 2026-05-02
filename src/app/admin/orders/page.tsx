@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, query, orderBy, getDocs, doc, updateDoc } from "firebase/firestore";
+import { collection, query, orderBy, getDocs, doc, updateDoc, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Button } from "@/components/ui/Button";
 
@@ -29,7 +29,7 @@ export default function AdminOrdersPage() {
   const fetchOrders = async () => {
     setLoading(true);
     try {
-      const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
+      const q = query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(300));
       const snapshot = await getDocs(q);
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
       setOrders(data);
@@ -60,6 +60,7 @@ export default function AdminOrdersPage() {
     });
 
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [modalStatus, setModalStatus] = useState<string>("");
 
   const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
@@ -204,7 +205,10 @@ export default function AdminOrdersPage() {
                     <td className="p-4 text-right">
                       <Button 
                         variant="outline" 
-                        onClick={() => setSelectedOrder(order)}
+                        onClick={() => {
+                        setSelectedOrder(order);
+                        setModalStatus(order.status);
+                      }}
                         className="text-xs py-1 h-auto px-2 border-gray-600 text-gray-400 hover:text-pure-white"
                       >
                         VIEW
@@ -303,7 +307,8 @@ export default function AdminOrdersPage() {
                   <div className="flex gap-2">
                     <select 
                       id="modal-status-select"
-                      defaultValue={selectedOrder.status}
+                      value={modalStatus}
+                      onChange={(e) => setModalStatus(e.target.value)}
                       className="bg-void-black border-2 border-gray-800 text-pure-white px-3 py-2 text-xs font-bold uppercase outline-none focus:border-acid-green"
                     >
                       <option value="Pending">Pending</option>
@@ -315,9 +320,8 @@ export default function AdminOrdersPage() {
                       variant="primary" 
                       className="text-[10px] py-1 px-3 h-auto"
                       onClick={() => {
-                        const newStatus = (document.getElementById('modal-status-select') as HTMLSelectElement).value;
-                        updateStatus(selectedOrder.id, newStatus);
-                        setSelectedOrder({ ...selectedOrder, status: newStatus });
+                        updateStatus(selectedOrder.id, modalStatus);
+                        setSelectedOrder({ ...selectedOrder, status: modalStatus });
                       }}
                     >
                       UPDATE STATUS

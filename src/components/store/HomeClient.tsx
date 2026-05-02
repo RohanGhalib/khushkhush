@@ -1,40 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { collection, query, where, getDocs, limit } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { ProductCard } from "@/components/store/ProductCard";
 import { CollectionCard } from "@/components/store/CollectionCard";
 import { NewsletterBar } from "@/components/store/NewsletterBar";
 import Link from "next/link";
 
-export function HomeClient() {
-  const [products, setProducts] = useState<any[]>([]);
-  const [collections, setCollections] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+interface HomeClientProps {
+  products: any[];
+  collections: any[];
+}
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const productsQuery = query(
-          collection(db, "products"),
-          where("status", "==", "Active"),
-          limit(4)
-        );
-        const productsSnapshot = await getDocs(productsQuery);
-        setProducts(productsSnapshot.docs.map(doc => ({ slug: doc.id, ...doc.data() })));
-
-        const collectionsSnapshot = await getDocs(collection(db, "collections"));
-        setCollections(collectionsSnapshot.docs.map(doc => ({ slug: doc.id, ...doc.data() })));
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchData();
-  }, []);
-
+/**
+ * Pure client component — receives products and collections as props from
+ * the ISR server component (app/(store)/page.tsx).
+ */
+export function HomeClient({ products, collections }: HomeClientProps) {
   return (
     <main className="flex flex-col min-h-screen">
       <section className="flex flex-col items-center justify-center p-8 relative overflow-hidden min-h-[90vh]">
@@ -81,10 +61,8 @@ export function HomeClient() {
             </h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {loading ? (
-              [1, 2, 3, 4].map(n => <div key={n} className="bg-void-black border-2 border-gray-800 aspect-square animate-pulse" />)
-            ) : collections.map((col: any) => (
-              <CollectionCard key={col.slug} title={col.title} slug={col.slug} image={col.image} />
+            {collections.map((col: any) => (
+              <CollectionCard key={col.slug} title={col.title_en || col.title} slug={col.slug} image={col.image} />
             ))}
           </div>
         </div>
@@ -101,11 +79,13 @@ export function HomeClient() {
             </Link>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {loading ? (
-              [1, 2, 3, 4].map(n => <div key={n} className="bg-void-black border-2 border-gray-800 aspect-[4/5] animate-pulse" />)
-            ) : products.map((product: any) => (
-              <ProductCard key={product.slug} {...product} image={product.images?.[0] || ""} />
-            ))}
+            {products.length === 0 ? (
+              <div className="col-span-full py-12 text-center text-gray-500 font-sans uppercase">No products found.</div>
+            ) : (
+              products.map((product: any) => (
+                <ProductCard key={product.slug} {...product} image={product.images?.[0] || ""} />
+              ))
+            )}
           </div>
         </div>
       </section>

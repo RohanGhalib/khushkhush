@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, getDocs, doc, deleteDoc } from "firebase/firestore";
+import { collection, getDocs, doc, deleteDoc, limit, query } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Button } from "@/components/ui/Button";
 import Link from "next/link";
@@ -32,7 +32,7 @@ export default function AdminProductsPage() {
   const fetchProducts = async () => {
     setLoading(true);
     try {
-      const snapshot = await getDocs(collection(db, "products"));
+      const snapshot = await getDocs(query(collection(db, "products"), limit(300)));
       const data = snapshot.docs.map(doc => ({ slug: doc.id, ...doc.data() } as Product));
       setProducts(data);
     } catch (error) {
