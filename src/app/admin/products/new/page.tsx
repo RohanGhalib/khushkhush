@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp, collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -12,6 +12,7 @@ import { RichTextEditor } from "@/components/admin/RichTextEditor";
 export default function NewProductPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [collections, setCollections] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     name_en: "",
     name_ur: "",
@@ -30,7 +31,16 @@ export default function NewProductPage() {
     featured: false,
     tags: "",
     colors: "",
+    collectionSlug: "",
   });
+
+  useEffect(() => {
+    const fetchCollections = async () => {
+      const snapshot = await getDocs(collection(db, "collections"));
+      setCollections(snapshot.docs.map(doc => ({ slug: doc.id, ...doc.data() })));
+    };
+    fetchCollections();
+  }, []);
 
   const handleSlugify = (text: string) => {
     return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
@@ -179,6 +189,21 @@ export default function NewProductPage() {
                   <option value="Active">Active</option>
                   <option value="Draft">Draft</option>
                   <option value="Sold Out">Sold Out</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase mb-2 text-gray-400">Collection</label>
+                <select 
+                  name="collectionSlug" 
+                  value={formData.collectionSlug} 
+                  onChange={handleChange}
+                  className="flex h-12 w-full bg-void-black border-2 border-pure-white px-4 py-2 font-sans text-pure-white text-base focus-visible:outline-none focus-visible:border-acid-green"
+                >
+                  <option value="">No Collection</option>
+                  {collections.map(col => (
+                    <option key={col.slug} value={col.slug}>{col.title_en || col.title}</option>
+                  ))}
                 </select>
               </div>
 
