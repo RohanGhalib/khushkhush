@@ -10,8 +10,8 @@ import { ImageUploader } from "@/components/admin/ImageUploader";
 interface Collection {
   slug: string;
   title?: string;
-  title_en: string;
-  title_ur: string;
+  title_en?: string;
+  title_ur?: string;
   image: string;
 }
 
@@ -70,7 +70,7 @@ export default function AdminCollectionsPage() {
       }, { merge: true });
 
       resetForm();
-      fetchCollections();
+      await fetchCollections();
       showNotification(editingSlug ? "Collection updated" : "Collection created");
     } catch (error) {
       console.error("Error saving collection", error);
@@ -129,7 +129,7 @@ export default function AdminCollectionsPage() {
           type="text" 
           placeholder="Search Collection" 
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
           className="bg-void-black border-2 border-gray-800 text-pure-white px-4 py-2 font-sans text-sm focus:border-acid-green outline-none w-full md:w-64"
         />
       </div>
