@@ -14,9 +14,16 @@ export async function POST(req: Request) {
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
     const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
+    if (!projectId || !apiKey) {
+      console.error("Missing Firebase environment variables");
+      return NextResponse.json({ error: "Configuration error" }, { status: 500 });
+    }
+
     // Use Firestore REST API to avoid GRPC issues on server
-    const res = await fetch(
-      `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/newsletter/${docId}?key=${apiKey}`,
+    // Added updateMask.fieldPaths for each field to satisfy REST API requirements for PATCH
+    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/newsletter/${docId}?key=${apiKey}&updateMask.fieldPaths=email&updateMask.fieldPaths=createdAt`;
+    
+    const res = await fetch(url,
       {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
