@@ -19,7 +19,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid email address" }, { status: 400 });
     }
 
-    const docId = email.toLowerCase();
+    const docId = email.toLowerCase().trim();
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
     const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
@@ -28,27 +28,34 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Configuration error" }, { status: 500 });
     }
 
-    // Use Firestore REST API to avoid GRPC issues on server
-    // Added updateMask.fieldPaths for each field to satisfy REST API requirements for PATCH
-    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/newsletter/${docId}?key=${apiKey}&updateMask.fieldPaths=email&updateMask.fieldPaths=createdAt`;
+    // 1. Check if subscriber already exists
+    const checkUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/newsletter/${docId}?key=${apiKey}`;
+    const checkRes = await fetch(checkUrl);
+
+    if (checkRes.ok) {
+      // Document exists -> already subscribed
+      return NextResponse.json({ success: true, alreadySubscribed: true });
+    }
+
+    // 2. If not found (404), create it
+    // Use PATCH to create/update
+    const updateUrl = `${checkUrl}&updateMask.fieldPaths=email&updateMask.fieldPaths=createdAt`;
     
-    const res = await fetch(url,
-      {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fields: {
-            email: { stringValue: docId },
-            createdAt: { timestampValue: new Date().toISOString() },
-          },
-        }),
-      }
-    );
+    const res = await fetch(updateUrl, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fields: {
+          email: { stringValue: docId },
+          createdAt: { timestampValue: new Date().toISOString() },
+        },
+      }),
+    });
 
     if (!res.ok) {
       const errData = await res.json();
       console.error("Firestore REST Error:", errData);
-      throw new Error("Failed to save to Firestore");
+      return NextResponse.json({ error: "Failed to subscribe" }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });

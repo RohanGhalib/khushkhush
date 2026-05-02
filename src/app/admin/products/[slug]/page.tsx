@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { doc, getDoc, updateDoc, serverTimestamp, collection, getDocs } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { db, auth } from "@/lib/firebase";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { ImageUploader } from "@/components/admin/ImageUploader";
@@ -20,6 +20,25 @@ export default function EditProductPage({ params }: Props) {
   const [saving, setSaving] = useState(false);
   
   const [collections, setCollections] = useState<any[]>([]);
+
+  const triggerRevalidation = async (paths: string[]) => {
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) return;
+
+      await fetch("/api/revalidate", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${idToken}`
+        },
+        body: JSON.stringify({ paths }),
+      });
+    } catch (err) {
+      console.error("Revalidation failed:", err);
+    }
+  };
+
   const [formData, setFormData] = useState({
     name_en: "",
     name_ur: "",
@@ -103,6 +122,10 @@ export default function EditProductPage({ params }: Props) {
         colors: formData.colors.split(',').map(c => c.trim()).filter(Boolean),
         updatedAt: serverTimestamp(),
       });
+
+      // Trigger instant cache refresh for storefront
+      await triggerRevalidation(["/", "/shop", `/product/${slug}`]);
+
       alert("Product updated!");
       router.push("/admin/products");
     } catch (error) {

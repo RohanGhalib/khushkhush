@@ -20,7 +20,6 @@ export default function Icon() {
           alignItems: 'center',
           justifyContent: 'center',
           color: '#C8FF00',
-          fontWeight: 900,
           fontFamily: 'Twenly',
           letterSpacing: '-1px'
         }}

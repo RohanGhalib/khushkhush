@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { collection, getDocs, doc, deleteDoc, setDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { db, auth } from "@/lib/firebase";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
@@ -29,6 +29,24 @@ export default function AdminCouponsPage() {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
+
+  const triggerRevalidation = async (paths: string[]) => {
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) return;
+
+      await fetch("/api/revalidate", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${idToken}`
+        },
+        body: JSON.stringify({ paths }),
+      });
+    } catch (err) {
+      console.error("Revalidation failed:", err);
+    }
+  };
 
   useEffect(() => {
     fetchCoupons();
@@ -63,6 +81,9 @@ export default function AdminCouponsPage() {
         ...(editingId ? {} : { createdAt: serverTimestamp() })
       });
 
+      // Trigger storefront cache refresh
+      await triggerRevalidation(["/", "/shop"]);
+
       resetForm();
       fetchCoupons();
     } catch (error) {
@@ -92,6 +113,9 @@ export default function AdminCouponsPage() {
     try {
       await deleteDoc(doc(db, "coupons", id));
       setCoupons(coupons.filter(c => c.id !== id));
+
+      // Trigger storefront cache refresh
+      await triggerRevalidation(["/", "/shop"]);
     } catch (error) {
       console.error("Error deleting coupon", error);
       alert("Failed to delete coupon.");

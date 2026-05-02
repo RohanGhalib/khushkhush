@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { collection, getDocs, doc, deleteDoc, limit, query } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { db, auth } from "@/lib/firebase";
 import { Button } from "@/components/ui/Button";
 import Link from "next/link";
 import Image from "next/image";
@@ -28,6 +28,24 @@ export default function AdminProductsPage() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  const triggerRevalidation = async (paths: string[]) => {
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) return;
+
+      await fetch("/api/revalidate", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${idToken}`
+        },
+        body: JSON.stringify({ paths }),
+      });
+    } catch (err) {
+      console.error("Revalidation failed:", err);
+    }
+  };
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -72,6 +90,10 @@ export default function AdminProductsPage() {
       showNotification(`Deleting ${slug}...`);
       await deleteDoc(doc(db, "products", slug));
       setProducts(products.filter(p => p.slug !== slug));
+      
+      // Trigger instant cache refresh for storefront
+      await triggerRevalidation(["/", "/shop", `/product/${slug}`]);
+      
       showNotification("Product deleted successfully");
     } catch (error) {
       console.error("Error deleting product", error);

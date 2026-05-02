@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { collection, getDocs, doc, deleteDoc, setDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { db, auth } from "@/lib/firebase";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { ImageUploader } from "@/components/admin/ImageUploader";
@@ -27,9 +27,26 @@ export default function AdminCollectionsPage() {
   const [titleUr, setTitleUr] = useState("");
   const [image, setImage] = useState("");
 
-  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  const triggerRevalidation = async (paths: string[]) => {
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) return;
+
+      await fetch("/api/revalidate", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${idToken}`
+        },
+        body: JSON.stringify({ paths }),
+      });
+    } catch (err) {
+      console.error("Revalidation failed:", err);
+    }
+  };
 
   useEffect(() => {
     fetchCollections();
@@ -71,6 +88,10 @@ export default function AdminCollectionsPage() {
 
       resetForm();
       await fetchCollections();
+      
+      // Trigger instant cache refresh for storefront
+      await triggerRevalidation(["/", "/shop", `/collections/${slug}`]);
+      
       showNotification(editingSlug ? "Collection updated" : "Collection created");
     } catch (error) {
       console.error("Error saving collection", error);
@@ -98,6 +119,10 @@ export default function AdminCollectionsPage() {
       showNotification(`Deleting ${slug}...`);
       await deleteDoc(doc(db, "collections", slug));
       setCollections(collections.filter(c => c.slug !== slug));
+      
+      // Trigger instant cache refresh for storefront
+      await triggerRevalidation(["/", "/shop", `/collections/${slug}`]);
+      
       showNotification("Collection deleted");
     } catch (error) {
       console.error("Error deleting collection", error);

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { doc, setDoc, serverTimestamp, collection, getDocs } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { db, auth } from "@/lib/firebase";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { ImageUploader } from "@/components/admin/ImageUploader";
@@ -13,6 +13,25 @@ export default function NewProductPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [collections, setCollections] = useState<any[]>([]);
+
+  const triggerRevalidation = async (paths: string[]) => {
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) return;
+
+      await fetch("/api/revalidate", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${idToken}`
+        },
+        body: JSON.stringify({ paths }),
+      });
+    } catch (err) {
+      console.error("Revalidation failed:", err);
+    }
+  };
+
   const [formData, setFormData] = useState({
     name_en: "",
     name_ur: "",
@@ -80,6 +99,10 @@ export default function NewProductPage() {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+
+      // Trigger instant cache refresh for storefront
+      await triggerRevalidation(["/", "/shop", `/product/${formData.slug}`]);
+
       alert("Product created!");
       router.push("/admin/products");
     } catch (error) {
