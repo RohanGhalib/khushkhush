@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { collection, getDocs, doc, deleteDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { ImageUploader } from "@/components/admin/ImageUploader";
 
 interface Collection {
   slug: string;
@@ -148,8 +150,25 @@ export default function AdminCollectionsPage() {
               <Input value={titleUr} onChange={(e) => setTitleUr(e.target.value)} placeholder="مثال: گرمیوں کا مجموعہ" className="text-right font-urdu" />
             </div>
             <div>
-              <label className="block text-xs font-bold uppercase mb-2 text-gray-400">Cover Image URL</label>
-              <Input value={image} onChange={(e) => setImage(e.target.value)} placeholder="https://..." />
+              <label className="block text-xs font-bold uppercase mb-2 text-gray-400">Cover Image</label>
+              <div className="space-y-4">
+                <ImageUploader 
+                  images={image ? [image] : []} 
+                  onChange={(urls) => setImage(urls[urls.length - 1] || "")} 
+                  multiple={false}
+                />
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                    <span className="text-gray-500 text-xs font-bold">OR URL</span>
+                  </div>
+                  <Input 
+                    value={image} 
+                    onChange={(e) => setImage(e.target.value)} 
+                    placeholder="https://..." 
+                    className="pl-16"
+                  />
+                </div>
+              </div>
             </div>
             <div className="flex gap-2 pt-2">
               <Button type="submit" variant="primary" className="flex-1">

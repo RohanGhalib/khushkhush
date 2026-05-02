@@ -1,6 +1,14 @@
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
 
+export interface UserProfileUpdate {
+  name?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  postalCode?: string;
+}
+
 export async function createUserDocument(uid: string, data: { email: string; name: string; phone?: string }) {
   const userRef = doc(db, "users", uid);
   const snapshot = await getDoc(userRef);
@@ -29,11 +37,8 @@ export async function getUserProfile(uid: string) {
   return snapshot.exists() ? snapshot.data() : null;
 }
 
-export async function updateUserProfile(uid: string, data: any) {
+export async function updateUserProfile(uid: string, data: UserProfileUpdate) {
   const userRef = doc(db, "users", uid);
-  try {
-    await setDoc(userRef, { ...data, updatedAt: serverTimestamp() }, { merge: true });
-  } catch (error) {
-    console.error("Error updating user document", error);
-  }
+  // Throws on failure so callers can handle errors rather than silently losing data
+  await setDoc(userRef, { ...data, updatedAt: serverTimestamp() }, { merge: true });
 }

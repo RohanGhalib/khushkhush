@@ -1,33 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { collection, query, where, getDocs } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { ProductCard } from "@/components/store/ProductCard";
 
-export function CollectionView({ slug }: { slug: string }) {
-  const [products, setProducts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchProducts() {
-      try {
-        const q = query(
-          collection(db, "products"),
-          where("status", "==", "Active"),
-          where("tags", "array-contains", slug)
-        );
-        const snapshot = await getDocs(q);
-        setProducts(snapshot.docs.map(doc => ({ slug: doc.id, ...doc.data() })));
-      } catch (error) {
-        console.error("Error fetching collection products:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchProducts();
-  }, [slug]);
-
+/**
+ * Pure client component — receives products as props from
+ * the ISR server component (collections/[slug]/page.tsx).
+ */
+export function CollectionView({ slug, products }: { slug: string; products: any[] }) {
   return (
     <div className="min-h-screen bg-card-bg">
       <div className="max-w-7xl mx-auto px-6 py-12 md:py-24">
@@ -40,11 +19,7 @@ export function CollectionView({ slug }: { slug: string }) {
           </p>
         </div>
 
-        {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[1, 2, 3, 4].map(n => <div key={n} className="bg-void-black border-2 border-gray-800 aspect-[4/5] animate-pulse" />)}
-          </div>
-        ) : products.length === 0 ? (
+        {products.length === 0 ? (
           <div className="py-24 text-center">
             <h2 className="font-twenly text-3xl text-gray-500 uppercase">NO PRODUCTS FOUND.</h2>
           </div>

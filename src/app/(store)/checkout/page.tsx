@@ -4,12 +4,18 @@ import { useState, useEffect } from "react";
 import { useCartStore } from "@/lib/cart";
 import { useAuthStore } from "@/lib/authStore";
 import { useRouter } from "next/navigation";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import Image from "next/image";
 import { getUserProfile, updateUserProfile } from "@/lib/firestore";
+
+interface ServerCoupon {
+  valid: true;
+  code: string;
+  type: "percent" | "fixed";
+  discountAmount: number;
+  finalDiscount: number;
+}
 
 export default function CheckoutPage() {
   const { items, getCartTotal, clearCart } = useCartStore();
@@ -27,7 +33,7 @@ export default function CheckoutPage() {
     postalCode: "",
   });
 
-  // Pre-fill from Auth and Fetch saved profile
+  // Pre-fill from Auth and fetch saved profile
   useEffect(() => {
     if (user) {
       setFormData(prev => ({
@@ -64,82 +70,92 @@ export default function CheckoutPage() {
     }
   }, [items, router, isSuccess, user, loadingAuth]);
 
-  if (items.length === 0) return null;
+  if (items.length === 0 && !isSuccess) return null;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const [couponCode, setCouponCode] = useState("");
-  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<ServerCoupon | null>(null);
   const [couponError, setCouponError] = useState("");
-
-  const handleApplyCoupon = async () => {
-    setCouponError("");
-    if (!couponCode) return;
-
-    try {
-      const { getDoc, doc } = await import("firebase/firestore");
-      const couponRef = doc(db, "coupons", couponCode.toUpperCase());
-      const snapshot = await getDoc(couponRef);
-
-      if (!snapshot.exists()) {
-        setCouponError("INVALID COUPON");
-        return;
-      }
-
-      const data = snapshot.data();
-      if (data.status !== "Active") {
-        setCouponError("COUPON EXPIRED");
-        return;
-      }
-
-      setAppliedCoupon(data);
-      setCouponCode("");
-    } catch (error) {
-      setCouponError("FAILED TO APPLY");
-    }
-  };
+  const [couponLoading, setCouponLoading] = useState(false);
 
   const subtotal = getCartTotal();
   const shipping = 200;
-  
-  let discount = 0;
-  if (appliedCoupon) {
-    if (appliedCoupon.type === "percent") {
-      discount = (subtotal * appliedCoupon.discountAmount) / 100;
-    } else {
-      discount = appliedCoupon.discountAmount;
-    }
-  }
 
+  // Discount is always the server-verified value — cannot be spoofed by the client
+  const discount = appliedCoupon?.finalDiscount ?? 0;
   const total = Math.max(0, subtotal + shipping - discount);
+
+  const handleApplyCoupon = async () => {
+    setCouponError("");
+    if (!couponCode.trim()) return;
+    setCouponLoading(true);
+
+    try {
+      const res = await fetch("/api/validate-coupon", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: couponCode.trim(), subtotal }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        setCouponError(data.error || "FAILED TO APPLY");
+        return;
+      }
+
+      if (!data.valid) {
+        setCouponError(data.error || "INVALID COUPON");
+        return;
+      }
+
+      setAppliedCoupon(data as ServerCoupon);
+      setCouponCode("");
+    } catch {
+      setCouponError("FAILED TO APPLY");
+    } finally {
+      setCouponLoading(false);
+    }
+  };
 
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return; // Prevent double submission
     setLoading(true);
 
     if (!user) return;
     try {
-      const orderData = JSON.parse(JSON.stringify({
-        userId: user.uid,
-        customerInfo: formData,
-        items: items,
-        subtotal: subtotal,
-        shipping: shipping,
-        discount: discount,
-        appliedCoupon: appliedCoupon?.code || null,
-        total: total,
-        status: "Pending",
-        paymentMethod: "COD",
-        createdAt: new Date().toISOString(),
-      }));
+      const idToken = await user.getIdToken();
       
-      orderData.createdAt = serverTimestamp();
+      // Create order via secure Server API
+      const response = await fetch("/api/orders/create", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${idToken}`
+        },
+        body: JSON.stringify({
+          userId: user.uid,
+          customerInfo: formData,
+          items: items,
+          subtotal: subtotal,
+          shipping: shipping,
+          couponCode: appliedCoupon?.code || null,
+        }),
+      });
 
-      const docRef = await addDoc(collection(db, "orders"), orderData);
+      const result = await response.json();
+
+      if (!response.ok || result.error) {
+        throw new Error(result.error || "Failed to create order");
+      }
+
+      const { orderId, total: finalTotal } = result;
       
-      // Update User Profile with the latest info
+      // Update User Profile with the latest info (client-side update is fine for convenience)
       try {
         await updateUserProfile(user.uid, {
           name: formData.fullName,
@@ -152,30 +168,26 @@ export default function CheckoutPage() {
         console.error("Failed to update profile:", profileError);
       }
       
-      // Trigger Order Confirmation Email
-      try {
-        await fetch("/api/emails/order-confirmation", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            orderId: docRef.id,
-            customerEmail: formData.email,
-            customerName: formData.fullName,
-            total: orderData.total,
-            items: items,
-          }),
-        });
-      } catch (emailError) {
-        console.error("Failed to send receipt email:", emailError);
-      }
+      // Trigger Order Confirmation Email (fire-and-forget)
+      fetch("/api/emails/order-confirmation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: orderId,
+          customerEmail: formData.email,
+          customerName: formData.fullName,
+          total: finalTotal,
+          items: items,
+        }),
+      }).catch(err => console.error("Failed to send receipt email:", err));
 
       // Clear cart and redirect
       setIsSuccess(true);
       clearCart();
-      router.push(`/order/${docRef.id}/confirmed`);
-    } catch (error) {
+      router.push(`/order/${orderId}/confirmed`);
+    } catch (error: any) {
       console.error("Error creating order:", error);
-      alert("Failed to process order. Please try again.");
+      alert(error.message || "Failed to process order. Please try again.");
       setLoading(false);
     }
   };
@@ -292,15 +304,23 @@ export default function CheckoutPage() {
                     value={couponCode} 
                     onChange={(e) => setCouponCode(e.target.value)}
                     className="h-10 text-xs tracking-widest"
+                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleApplyCoupon())}
                   />
-                  <Button variant="outline" className="h-10 text-[10px] px-4" onClick={handleApplyCoupon}>APPLY</Button>
+                  <Button
+                    variant="outline"
+                    className="h-10 text-[10px] px-4"
+                    onClick={handleApplyCoupon}
+                    disabled={couponLoading}
+                  >
+                    {couponLoading ? "..." : "APPLY"}
+                  </Button>
                 </div>
                 {couponError && <p className="text-[10px] text-red-500 font-bold mt-1 uppercase">{couponError}</p>}
               </div>
             ) : (
               <div className="mb-6 flex justify-between items-center bg-acid-green/10 border border-acid-green p-3">
                 <p className="text-xs font-bold text-acid-green uppercase tracking-widest">
-                  COUPON: {appliedCoupon.code} (-{appliedCoupon.type === 'percent' ? `${appliedCoupon.discountAmount}%` : `Rs.${appliedCoupon.discountAmount}`})
+                  COUPON: {appliedCoupon.code} (-{appliedCoupon.type === "percent" ? `${appliedCoupon.discountAmount}%` : `Rs.${appliedCoupon.discountAmount}`})
                 </p>
                 <button onClick={() => setAppliedCoupon(null)} className="text-acid-green text-[10px] font-black underline">REMOVE</button>
               </div>

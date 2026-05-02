@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { rateLimit } from "@/lib/rateLimit";
 import { Resend } from 'resend';
 import { WelcomeEmail } from '@/emails/WelcomeEmail';
 import { collection, query, where, getDocs, limit, orderBy } from 'firebase/firestore';
@@ -8,6 +9,14 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req: Request) {
   try {
+    // Rate Limiting: 3 requests per hour per IP
+    const ip = req.headers.get("x-forwarded-for") || "anonymous";
+    const { success } = await rateLimit(`email-welcome-${ip}`, 3, 3600000);
+    
+    if (!success) {
+      return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });
+    }
+
     const { customerEmail, customerName } = await req.json();
 
     if (!customerEmail) {

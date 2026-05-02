@@ -21,15 +21,17 @@ export const useWishlistStore = create<WishlistState>()(
     (set, get) => ({
       items: [],
       toggleItem: (item) => {
-        const exists = get().items.find(i => i.slug === item.slug);
-        if (exists) {
-          set({ items: get().items.filter(i => i.slug !== item.slug) });
-        } else {
-          set({ items: [...get().items, item] });
-        }
+        set((state) => {
+          const exists = state.items.find(i => i.slug === item.slug);
+          return {
+            items: exists
+              ? state.items.filter(i => i.slug !== item.slug)
+              : [...state.items, item],
+          };
+        });
       },
       removeItem: (slug) => {
-        set({ items: get().items.filter(i => i.slug !== slug) });
+        set((state) => ({ items: state.items.filter(i => i.slug !== slug) }));
       },
       isInWishlist: (slug) => {
         return !!get().items.find(i => i.slug === slug);

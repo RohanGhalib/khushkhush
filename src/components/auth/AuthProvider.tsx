@@ -13,10 +13,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(user);
       if (user) {
         try {
+          // Fetch the ID token and get its claims
           const tokenResult = await user.getIdTokenResult();
           const hasAdminClaim = !!tokenResult.claims.admin;
-          const isHardcodedAdmin = user.email === "muhammadrohanghalib@gmail.com";
-          setIsAdmin(hasAdminClaim || isHardcodedAdmin);
+          setIsAdmin(hasAdminClaim);
         } catch (error) {
           console.error("Error fetching claims:", error);
           setIsAdmin(false);

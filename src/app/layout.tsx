@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { DM_Sans, Noto_Nastaliq_Urdu } from "next/font/google";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { StoreLayout } from "@/components/layout/StoreLayout";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -61,6 +62,7 @@ export default function RootLayout({
           <StoreLayout>
             {children}
           </StoreLayout>
+          <Analytics />
         </AuthProvider>
       </body>
     </html>

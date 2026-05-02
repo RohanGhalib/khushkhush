@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, getDocs, query, orderBy, limit } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, limit, getCountFromServer } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { DollarSign, ShoppingBag, Users, AlertTriangle } from "lucide-react";
 
@@ -21,12 +21,20 @@ export default function AdminDashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      // Fetch Orders
-      const ordersSnap = await getDocs(query(collection(db, "orders"), orderBy("createdAt", "desc")));
+      // --- Orders ---
+      // Fetch the most recent 200 orders for revenue calculation + display.
+      // NOTE: At true scale (10k+ orders), replace this with a denormalized
+      // `stats` document maintained by a Firestore trigger or Cloud Function.
+      const ordersQuery = query(
+        collection(db, "orders"),
+        orderBy("createdAt", "desc"),
+        limit(200)
+      );
+      const ordersSnap = await getDocs(ordersQuery);
       let revenue = 0;
       let orderCount = 0;
       const recent: any[] = [];
-      
+
       ordersSnap.forEach((doc) => {
         const data = doc.data();
         revenue += data.total || 0;
@@ -36,18 +44,22 @@ export default function AdminDashboard() {
         }
       });
 
-      // Fetch Users
-      const usersSnap = await getDocs(collection(db, "users"));
-      const userCount = usersSnap.size;
+      // --- User Count ---
+      // getCountFromServer reads zero documents — it uses Firestore's aggregation
+      // query which is billed as a single read regardless of collection size.
+      const usersCountSnap = await getCountFromServer(collection(db, "users"));
+      const userCount = usersCountSnap.data().count;
 
-      // Fetch Products for low stock
-      const productsSnap = await getDocs(collection(db, "products"));
+      // --- Low Stock Products ---
+      // Fetch up to 100 products to check stock levels.
+      const productsQuery = query(collection(db, "products"), limit(100));
+      const productsSnap = await getDocs(productsQuery);
       let lowStockCount = 0;
       productsSnap.forEach((doc) => {
         const data = doc.data();
         const sizes = data.sizes || {};
         const totalStock = Object.values(sizes).reduce((a: any, b: any) => a + b, 0) as number;
-        if (totalStock < 10) { // arbitrary threshold
+        if (totalStock < 10) {
           lowStockCount++;
         }
       });
@@ -67,8 +79,8 @@ export default function AdminDashboard() {
   };
 
   const statCards = [
-    { title: "Total Revenue", value: `Rs. ${stats.revenue.toLocaleString()}`, icon: DollarSign, trend: "ALL TIME" },
-    { title: "Total Orders", value: stats.orders.toString(), icon: ShoppingBag, trend: "ALL TIME" },
+    { title: "Total Revenue", value: `Rs. ${stats.revenue.toLocaleString()}`, icon: DollarSign, trend: "LAST 200 ORDERS" },
+    { title: "Total Orders", value: stats.orders.toString(), icon: ShoppingBag, trend: "LAST 200" },
     { title: "Customers", value: stats.users.toString(), icon: Users, trend: "REGISTERED" },
     { title: "Low Stock Items", value: stats.lowStock.toString(), icon: AlertTriangle, trend: "< 10 UNITS", isAlert: stats.lowStock > 0 },
   ];

@@ -3,13 +3,15 @@
 import { useState, useRef } from "react";
 import Image from "next/image";
 import { Upload, X, Loader2 } from "lucide-react";
+import { auth } from "@/lib/firebase";
 
 interface ImageUploaderProps {
   images: string[];
   onChange: (images: string[]) => void;
+  multiple?: boolean;
 }
 
-export function ImageUploader({ images, onChange }: ImageUploaderProps) {
+export function ImageUploader({ images, onChange, multiple = true }: ImageUploaderProps) {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -22,10 +24,17 @@ export function ImageUploader({ images, onChange }: ImageUploaderProps) {
 
     try {
       for (const file of files) {
+        // Get Firebase token for auth
+        const idToken = await auth.currentUser?.getIdToken();
+        if (!idToken) throw new Error("Not authenticated");
+
         // Get presigned URL
         const res = await fetch("/api/r2/presign", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${idToken}`
+          },
           body: JSON.stringify({ filename: file.name, contentType: file.type }),
         });
         
@@ -87,7 +96,7 @@ export function ImageUploader({ images, onChange }: ImageUploaderProps) {
         ref={fileInputRef}
         onChange={handleUpload}
         className="hidden"
-        multiple
+        multiple={multiple}
         accept="image/jpeg, image/png, image/webp"
       />
     </div>
