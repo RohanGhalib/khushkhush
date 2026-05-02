@@ -3,6 +3,7 @@ import { DM_Sans, Noto_Nastaliq_Urdu } from "next/font/google";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { StoreLayout } from "@/components/layout/StoreLayout";
 import { Analytics } from "@vercel/analytics/next";
+import { CookieBanner } from "@/components/ui/CookieBanner";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -63,6 +64,7 @@ export default function RootLayout({
             {children}
           </StoreLayout>
           <Analytics />
+          <CookieBanner />
         </AuthProvider>
       </body>
     </html>
