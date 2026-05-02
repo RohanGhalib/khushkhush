@@ -32,6 +32,7 @@ export default function CheckoutPage() {
     city: "",
     postalCode: "",
   });
+  const [loadingProfile, setLoadingProfile] = useState(true);
 
   // Pre-fill from Auth and fetch saved profile
   useEffect(() => {
@@ -43,21 +44,28 @@ export default function CheckoutPage() {
       }));
 
       const fetchProfile = async () => {
-        const profile = await getUserProfile(user.uid);
-        if (profile) {
-          setFormData(prev => ({
-            ...prev,
-            fullName: prev.fullName || profile.name || "",
-            phone: prev.phone || profile.phone || "",
-            address: prev.address || profile.address || "",
-            city: prev.city || profile.city || "",
-            postalCode: prev.postalCode || profile.postalCode || "",
-          }));
+        setLoadingProfile(true);
+        try {
+          const profile = await getUserProfile(user.uid);
+          if (profile) {
+            setFormData(prev => ({
+              ...prev,
+              fullName: prev.fullName || profile.name || "",
+              phone: prev.phone || profile.phone || "",
+              address: prev.address || profile.address || "",
+              city: prev.city || profile.city || "",
+              postalCode: prev.postalCode || profile.postalCode || "",
+            }));
+          }
+        } finally {
+          setLoadingProfile(false);
         }
       };
       fetchProfile();
+    } else if (!loadingAuth) {
+      setLoadingProfile(false);
     }
-  }, [user]);
+  }, [user, loadingAuth]);
 
   // Redirect if cart is empty or user not logged in
   useEffect(() => {
@@ -193,7 +201,16 @@ export default function CheckoutPage() {
   };
 
   return (
-    <div className="min-h-screen bg-card-bg">
+    <div className="min-h-screen bg-card-bg relative">
+      {/* Sarcastic Loading Overlay */}
+      {loadingProfile && (
+        <div className="fixed inset-0 z-50 bg-void-black/90 backdrop-blur-sm flex flex-col items-center justify-center">
+          <div className="font-urdu text-7xl text-acid-green mb-4">صبر کریں</div>
+          <p className="font-twenly text-xl text-gray-500 uppercase tracking-[0.3em] animate-dots">
+            GATHERING YOUR DETAILS
+          </p>
+        </div>
+      )}
       <div className="max-w-7xl mx-auto px-6 py-12 md:py-24 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-24">
         
         {/* Left: Checkout Form */}
@@ -357,7 +374,12 @@ export default function CheckoutPage() {
               className="w-full h-16 text-xl"
               disabled={loading}
             >
-              {loading ? "PROCESSING..." : "CONFIRM ORDER"}
+              {loading ? (
+                <div className="flex items-center gap-2">
+                  <span className="font-urdu text-2xl">صبر کریں</span>
+                  <span className="animate-dots"></span>
+                </div>
+              ) : "CONFIRM ORDER"}
             </Button>
           </div>
         </div>

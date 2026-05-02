@@ -29,8 +29,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (!mounted || loading || !user || !isAdmin) {
     return (
-      <div className="flex-1 flex items-center justify-center min-h-screen bg-[#0D0D0D]">
-        <p className="font-twenly text-4xl text-acid-green animate-pulse tracking-widest">VERIFYING ACCESS...</p>
+      <div className="flex-1 flex flex-col items-center justify-center min-h-screen bg-[#0D0D0D]">
+        <div className="font-urdu text-6xl text-acid-green mb-4">صبر کریں</div>
+        <p className="font-twenly text-xl text-gray-500 uppercase tracking-[0.3em] animate-dots">Verifying your existence</p>
       </div>
     );
   }

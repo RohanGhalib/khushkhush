@@ -71,7 +71,12 @@ export default function LoginPage() {
           disabled={loading}
           className="w-full h-16 shadow-[4px_4px_0px_#FFFFFF]"
         >
-          {loading ? "AUTHENTICATING..." : "SIGN IN WITH GOOGLE"}
+          {loading ? (
+            <div className="flex items-center gap-2">
+              <span className="font-urdu text-2xl">صبر کریں</span>
+              <span className="animate-dots"></span>
+            </div>
+          ) : "SIGN IN WITH GOOGLE"}
         </Button>
       </div>
     </div>
