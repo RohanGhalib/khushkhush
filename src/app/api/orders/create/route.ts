@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 import { rateLimit } from "@/lib/rateLimit";
 
-// We'll use the Firestore REST API for server-side order creation
-// to avoid gRPC overhead/limitations in serverless.
-
 export async function POST(req: Request) {
   try {
     // 1. Rate Limiting: 3 orders per 10 mins per IP
@@ -13,6 +10,14 @@ export async function POST(req: Request) {
     if (!success) {
       return NextResponse.json({ error: "Too many order attempts. Please wait." }, { status: 429 });
     }
+
+    // 2. Auth Check: Pass the user's ID token to Firestore REST
+    // This ensures Firestore rules (like "allow create: if request.auth != null") pass.
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const idToken = authHeader.split(" ")[1];
 
     const body = await req.json();
     const { userId, customerInfo, items, subtotal, shipping, couponCode } = body;
@@ -24,23 +29,23 @@ export async function POST(req: Request) {
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
     const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
-    // 2. Server-side Validation
-    // Re-verify subtotal based on items (assuming we have prices on server)
-    // For now, we'll trust the items structure but we should ideally fetch prices from Firestore.
-    // A simplified version: re-validate coupon if provided.
-    
+    // 3. Server-side Coupon Validation
     let verifiedDiscount = 0;
     let finalCouponCode = null;
 
     if (couponCode) {
       const couponUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/coupons/${encodeURIComponent(couponCode.toUpperCase().trim())}?key=${apiKey}`;
-      const couponRes = await fetch(couponUrl);
+      const couponRes = await fetch(couponUrl, {
+        headers: { "Authorization": `Bearer ${idToken}` }
+      });
       if (couponRes.ok) {
         const couponData = await couponRes.json();
         const fields = couponData.fields;
         if (fields && fields.status?.stringValue === "Active") {
           const type = fields.type?.stringValue;
-          const amount = fields.discountAmount?.integerValue ? parseInt(fields.discountAmount.integerValue) : (fields.discountAmount?.doubleValue ?? 0);
+          const amount = fields.discountAmount?.integerValue 
+            ? parseInt(fields.discountAmount.integerValue, 10) 
+            : (fields.discountAmount?.doubleValue ?? 0);
           
           if (type === "percent") {
             verifiedDiscount = Math.round((subtotal * amount) / 100);
@@ -53,11 +58,6 @@ export async function POST(req: Request) {
     }
 
     const verifiedTotal = Math.max(0, subtotal + shipping - verifiedDiscount);
-
-    // 3. Idempotency Check (Simplified)
-    // Check if an order with same items/user exists in last 2 mins
-    // This requires a Firestore query.
-    // ... skipping for now to keep it lean, but rate limiting covers the worst abuse.
 
     // 4. Create Order document via REST API
     const orderUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/orders?key=${apiKey}`;
@@ -87,19 +87,21 @@ export async function POST(req: Request) {
                   slug: { stringValue: item.slug },
                   name_en: { stringValue: item.name_en },
                   size: { stringValue: item.size },
-                  price: { integerValue: String(item.price) },
-                  qty: { integerValue: String(item.qty) },
+                  price: { integerValue: String(Math.round(item.price)) },
+                  qty: { integerValue: String(Math.round(item.qty)) },
                   image: { stringValue: item.image || "" }
                 }
               }
             }))
           }
         },
-        subtotal: { integerValue: String(subtotal) },
-        shipping: { integerValue: String(shipping) },
-        discount: { integerValue: String(verifiedDiscount) },
-        appliedCoupon: finalCouponCode ? { stringValue: finalCouponCode } : { nullValue: null },
-        total: { integerValue: String(verifiedTotal) },
+        subtotal: { integerValue: String(Math.round(subtotal)) },
+        shipping: { integerValue: String(Math.round(shipping)) },
+        discount: { integerValue: String(Math.round(verifiedDiscount)) },
+        appliedCoupon: finalCouponCode 
+          ? { stringValue: finalCouponCode } 
+          : { nullValue: "NULL_VALUE" }, // Correct Firestore REST null syntax
+        total: { integerValue: String(Math.round(verifiedTotal)) },
         status: { stringValue: "Pending" },
         paymentMethod: { stringValue: "COD" },
         createdAt: { timestampValue: new Date().toISOString() }
@@ -108,22 +110,29 @@ export async function POST(req: Request) {
 
     const createRes = await fetch(orderUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${idToken}` // Critical for security rules
+      },
       body: JSON.stringify(orderDoc)
     });
 
     if (!createRes.ok) {
       const err = await createRes.json();
-      console.error("Firestore Order Create Error:", err);
-      return NextResponse.json({ error: "Failed to create order" }, { status: 500 });
+      console.error("Firestore Order Create Error Detail:", JSON.stringify(err, null, 2));
+      // Return the error detail to the client so we can diagnose it if it fails again
+      return NextResponse.json({ 
+        error: "Failed to create order", 
+        detail: err.error?.message || "Unknown Firestore error" 
+      }, { status: createRes.status === 403 ? 403 : 500 });
     }
 
     const createdOrder = await createRes.json();
     const orderId = createdOrder.name.split("/").pop();
 
     return NextResponse.json({ success: true, orderId, total: verifiedTotal });
-  } catch (error) {
-    console.error("Order creation error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  } catch (error: any) {
+    console.error("Order creation internal error:", error);
+    return NextResponse.json({ error: "Internal server error", detail: error.message }, { status: 500 });
   }
 }

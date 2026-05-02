@@ -128,10 +128,15 @@ export default function CheckoutPage() {
 
     if (!user) return;
     try {
+      const idToken = await user.getIdToken();
+      
       // Create order via secure Server API
       const response = await fetch("/api/orders/create", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${idToken}`
+        },
         body: JSON.stringify({
           userId: user.uid,
           customerInfo: formData,
