@@ -23,6 +23,12 @@ export default function AdminProductsPage() {
     fetchProducts();
   }, []);
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState("name");
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   const fetchProducts = async () => {
     setLoading(true);
     try {
@@ -36,24 +42,79 @@ export default function AdminProductsPage() {
     }
   };
 
+  const filteredProducts = products
+    .filter(p => p.name_en.toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort((a, b) => {
+      if (sortBy === "name") return a.name_en.localeCompare(b.name_en);
+      if (sortBy === "price-high") return b.price - a.price;
+      if (sortBy === "price-low") return a.price - b.price;
+      if (sortBy === "status") return a.status.localeCompare(b.status);
+      return 0;
+    });
+
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+  const paginatedProducts = filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  useEffect(() => {
+    setCurrentPage(1); // Reset to first page on search/sort
+  }, [searchQuery, sortBy]);
+
+  const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null);
+
+  const showNotification = (message: string, type: "success" | "error" = "success") => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 3000);
+  };
+
   const handleDelete = async (slug: string) => {
     if (!confirm("Are you sure you want to delete this product?")) return;
     try {
+      showNotification(`Deleting ${slug}...`);
       await deleteDoc(doc(db, "products", slug));
       setProducts(products.filter(p => p.slug !== slug));
+      showNotification("Product deleted successfully");
     } catch (error) {
       console.error("Error deleting product", error);
-      alert("Failed to delete product.");
+      showNotification("Failed to delete product", "error");
     }
   };
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
-      <div className="flex justify-between items-center mb-8 border-b-2 border-gray-800 pb-4">
+      {/* Notification Toast */}
+      {notification && (
+        <div className={`fixed top-24 right-8 z-[200] p-4 border-2 shadow-[4px_4px_0px_rgba(0,0,0,1)] flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-300 ${
+          notification.type === 'success' ? 'bg-acid-green border-void-black text-void-black' : 'bg-red-600 border-pure-white text-pure-white'
+        }`}>
+          <div className="font-sans font-black uppercase text-sm">{notification.message}</div>
+        </div>
+      )}
+
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 border-b-2 border-gray-800 pb-6">
         <h1 className="font-twenly text-4xl text-pure-white tracking-wide uppercase">Products.</h1>
-        <Link href="/admin/products/new">
-          <Button variant="primary" className="text-sm">ADD PRODUCT</Button>
-        </Link>
+        
+        <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
+          <input 
+            type="text" 
+            placeholder="Search Product Name" 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="bg-void-black border-2 border-gray-800 text-pure-white px-4 py-2 font-sans text-sm focus:border-acid-green outline-none w-full sm:w-64"
+          />
+          <select 
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="bg-void-black border-2 border-gray-800 text-pure-white px-4 py-2 font-sans text-sm focus:border-acid-green outline-none"
+          >
+            <option value="name">Name: A-Z</option>
+            <option value="price-high">Price: High to Low</option>
+            <option value="price-low">Price: Low to High</option>
+            <option value="status">Status</option>
+          </select>
+          <Link href="/admin/products/new">
+            <Button variant="primary" className="text-sm">ADD PRODUCT</Button>
+          </Link>
+        </div>
       </div>
 
       <div className="bg-void-black border-2 border-gray-800">
@@ -71,10 +132,10 @@ export default function AdminProductsPage() {
             <tbody className="text-pure-white divide-y divide-gray-800">
               {loading ? (
                 <tr><td colSpan={5} className="p-8 text-center text-acid-green animate-pulse">LOADING PRODUCTS...</td></tr>
-              ) : products.length === 0 ? (
-                <tr><td colSpan={5} className="p-8 text-center text-gray-500">No products found.</td></tr>
+              ) : paginatedProducts.length === 0 ? (
+                <tr><td colSpan={5} className="p-8 text-center text-gray-500">No products match your search.</td></tr>
               ) : (
-                products.map((product) => (
+                paginatedProducts.map((product) => (
                   <tr key={product.slug} className="hover:bg-gray-800/20 transition-colors">
                     <td className="p-4">
                       <div className="w-12 h-12 relative bg-card-bg border border-gray-800">
@@ -110,6 +171,33 @@ export default function AdminProductsPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="p-4 border-t-2 border-gray-800 flex justify-between items-center bg-gray-900/20">
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">
+              Showing page {currentPage} of {totalPages}
+            </p>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                className="text-xs py-1 h-auto px-3 border-gray-600 disabled:opacity-30"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                PREVIOUS
+              </Button>
+              <Button 
+                variant="outline" 
+                className="text-xs py-1 h-auto px-3 border-gray-600 disabled:opacity-30"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >
+                NEXT
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

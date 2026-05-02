@@ -70,6 +70,51 @@ export default function CheckoutPage() {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
+  const [couponError, setCouponError] = useState("");
+
+  const handleApplyCoupon = async () => {
+    setCouponError("");
+    if (!couponCode) return;
+
+    try {
+      const { getDoc, doc } = await import("firebase/firestore");
+      const couponRef = doc(db, "coupons", couponCode.toUpperCase());
+      const snapshot = await getDoc(couponRef);
+
+      if (!snapshot.exists()) {
+        setCouponError("INVALID COUPON");
+        return;
+      }
+
+      const data = snapshot.data();
+      if (data.status !== "Active") {
+        setCouponError("COUPON EXPIRED");
+        return;
+      }
+
+      setAppliedCoupon(data);
+      setCouponCode("");
+    } catch (error) {
+      setCouponError("FAILED TO APPLY");
+    }
+  };
+
+  const subtotal = getCartTotal();
+  const shipping = 200;
+  
+  let discount = 0;
+  if (appliedCoupon) {
+    if (appliedCoupon.type === "percent") {
+      discount = (subtotal * appliedCoupon.discountAmount) / 100;
+    } else {
+      discount = appliedCoupon.discountAmount;
+    }
+  }
+
+  const total = Math.max(0, subtotal + shipping - discount);
+
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -80,9 +125,11 @@ export default function CheckoutPage() {
         userId: user.uid,
         customerInfo: formData,
         items: items,
-        subtotal: getCartTotal(),
-        shipping: 200,
-        total: getCartTotal() + 200,
+        subtotal: subtotal,
+        shipping: shipping,
+        discount: discount,
+        appliedCoupon: appliedCoupon?.code || null,
+        total: total,
         status: "Pending",
         paymentMethod: "COD",
         createdAt: new Date().toISOString(),
@@ -240,6 +287,29 @@ export default function CheckoutPage() {
               ))}
             </div>
 
+            {/* Coupon Section */}
+            {!appliedCoupon ? (
+              <div className="mb-6">
+                <div className="flex gap-2">
+                  <Input 
+                    placeholder="COUPON CODE" 
+                    value={couponCode} 
+                    onChange={(e) => setCouponCode(e.target.value)}
+                    className="h-10 text-xs tracking-widest"
+                  />
+                  <Button variant="outline" className="h-10 text-[10px] px-4" onClick={handleApplyCoupon}>APPLY</Button>
+                </div>
+                {couponError && <p className="text-[10px] text-red-500 font-bold mt-1 uppercase">{couponError}</p>}
+              </div>
+            ) : (
+              <div className="mb-6 flex justify-between items-center bg-acid-green/10 border border-acid-green p-3">
+                <p className="text-xs font-bold text-acid-green uppercase tracking-widest">
+                  COUPON: {appliedCoupon.code} (-{appliedCoupon.type === 'percent' ? `${appliedCoupon.discountAmount}%` : `Rs.${appliedCoupon.discountAmount}`})
+                </p>
+                <button onClick={() => setAppliedCoupon(null)} className="text-acid-green text-[10px] font-black underline">REMOVE</button>
+              </div>
+            )}
+
             <div className="space-y-3 font-sans font-bold uppercase text-sm border-t border-gray-800 pt-6 mb-6">
               <div className="flex justify-between text-gray-400">
                 <span>Subtotal</span>
@@ -249,6 +319,12 @@ export default function CheckoutPage() {
                 <span>Shipping</span>
                 <span className="text-pure-white">Rs. {shipping.toLocaleString()}</span>
               </div>
+              {discount > 0 && (
+                <div className="flex justify-between text-acid-green">
+                  <span>Discount</span>
+                  <span>- Rs. {discount.toLocaleString()}</span>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-between items-end border-t border-gray-800 pt-6 mb-8">
