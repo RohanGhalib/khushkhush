@@ -14,9 +14,7 @@ const firebaseConfig = {
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 
-// Use initializeFirestore with experimentalForceLongPolling to fix GRPC errors on Server Components
-const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
-});
+// Use default getFirestore to ensure fast WebSocket connections on the client
+const db = getFirestore(app);
 
 export { app, auth, db };
