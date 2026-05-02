@@ -15,9 +15,12 @@ export async function createUserDocument(uid: string, data: { email: string; nam
         wishlist: [],
         createdAt: serverTimestamp(),
       });
+      return true;
     } catch (error) {
+      console.error("Error creating user", error);
     }
   }
+  return false;
 }
 
 export async function getUserProfile(uid: string) {

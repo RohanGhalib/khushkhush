@@ -23,10 +23,22 @@ export default function LoginPage() {
 
       if (user) {
         // Ensure user document exists
-        await createUserDocument(user.uid, { 
+        const isNewUser = await createUserDocument(user.uid, { 
           email: user.email || "", 
           name: user.displayName || "Unknown", 
         });
+
+        if (isNewUser) {
+          // Send Welcome Email
+          fetch("/api/emails/welcome", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+              customerEmail: user.email, 
+              customerName: user.displayName || "Grip Master" 
+            }),
+          }).catch(console.error);
+        }
       }
 
       router.push("/account");

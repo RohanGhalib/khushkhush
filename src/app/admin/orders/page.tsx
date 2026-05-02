@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button";
 
 interface Order {
   id: string;
-  customerInfo: { fullName: string; phone: string; address: string; city: string };
+  customerInfo: { fullName: string; email: string; phone: string; address: string; city: string };
   total: number;
   status: string;
   createdAt: any;
@@ -38,8 +38,23 @@ export default function AdminOrdersPage() {
 
   const updateStatus = async (orderId: string, newStatus: string) => {
     try {
+      const order = orders.find(o => o.id === orderId);
+      if (!order) return;
+
       await updateDoc(doc(db, "orders", orderId), { status: newStatus });
       setOrders(orders.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+
+      // Trigger Status Update Email
+      fetch("/api/emails/order-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: order.id,
+          customerEmail: order.customerInfo.email,
+          customerName: order.customerInfo.fullName,
+          status: newStatus,
+        }),
+      }).catch(console.error);
     } catch (error) {
       console.error("Error updating status", error);
       alert("Failed to update status");

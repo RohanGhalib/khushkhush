@@ -9,17 +9,16 @@ import {
   Text,
   Link,
   Font,
+  Img,
 } from "@react-email/components";
 import * as React from "react";
 
-interface OrderReceiptProps {
-  orderId: string;
+interface WelcomeEmailProps {
   customerName: string;
-  total: number;
-  items: any[];
+  recentProducts: any[];
 }
 
-export const OrderReceipt = ({ orderId, customerName, total, items }: OrderReceiptProps) => (
+export const WelcomeEmail = ({ customerName, recentProducts }: WelcomeEmailProps) => (
   <Html>
     <Head>
       <Font
@@ -33,57 +32,53 @@ export const OrderReceipt = ({ orderId, customerName, total, items }: OrderRecei
         fontStyle="normal"
       />
     </Head>
-    <Preview>KhUShKhUSh. Order Locked In! #{orderId}</Preview>
+    <Preview>Welcome to the KhUShKhUSh. Gang!</Preview>
     <Body style={main}>
       <Container style={container}>
-        {/* Header Logo */}
         <Section style={headerSection}>
           <Heading style={logoText}>KhUShKhUSh.</Heading>
         </Section>
         
         <Section style={card}>
-          <Heading style={h1}>ORDER LOCKED IN.</Heading>
+          <Heading style={h1}>WELCOME TO THE GANG.</Heading>
           
           <Text style={text}>
             Yo <strong>{customerName}</strong>,<br />
-            We got your order <span style={highlight}>#{orderId}</span>. <br />
-            Our team is moving faster than a viral meme to get this to you.
+            You're officially part of the most aggressive streetwear movement. <br />
+            No more FOMO. You're now first in line for every drop.
           </Text>
 
           <Section style={memeBanner}>
-             <Text style={urduText}>مڈی تیار رکھو منافق ماحول ہے</Text>
-             <Text style={subUrduText}>KEEP THE CASH READY. NO LOOSE CHANGE.</Text>
+             <Text style={urduText}>دنیا گول ہے منافق ماحول ہے</Text>
+             <Text style={subUrduText}>YOU ARE NOW PART OF THE MOVEMENT.</Text>
           </Section>
 
-          <Heading as="h2" style={h2}>THE DAMAGE.</Heading>
+          <Heading as="h2" style={h2}>LATEST DROPS YOU MISSED.</Heading>
           
-          <Section style={table}>
-            {items.map((item: any, i: number) => (
-              <Section key={i} style={row}>
-                <Text style={itemText}>
-                  <span style={{ color: "#C8FF00", fontWeight: "900" }}>{item.qty}X</span> {item.name_en.toUpperCase()} ({item.size})
-                </Text>
-                <Text style={priceText}>Rs. {(item.price * item.qty).toLocaleString()}</Text>
+          <Section style={productGrid}>
+            {recentProducts.map((product, i) => (
+              <Section key={i} style={productItem}>
+                {product.image && (
+                  <Img 
+                    src={product.image} 
+                    alt={product.name_en} 
+                    width="150" 
+                    height="180" 
+                    style={productImage} 
+                  />
+                )}
+                <Text style={productName}>{product.name_en.toUpperCase()}</Text>
+                <Text style={productPrice}>Rs. {product.price.toLocaleString()}</Text>
+                <Link href={`https://khushkhush.com/product/${product.slug}`} style={shopLink}>
+                  SHOP NOW &rarr;
+                </Link>
               </Section>
             ))}
-            
-            <Section style={totalRow}>
-              <Text style={{ ...itemText, fontWeight: "900", color: "#FFFFFF" }}>TOTAL (INC. SHIPPING)</Text>
-              <Text style={totalPrice}>Rs. {total.toLocaleString()}</Text>
-            </Section>
-          </Section>
-
-          <Section style={infoBox}>
-            <Text style={{ ...text, marginBottom: "0", fontSize: "14px" }}>
-              <strong>PAYMENT:</strong> CASH ON DELIVERY (COD)<br />
-              <strong>DELIVERY:</strong> 3-5 WORKING DAYS
-            </Text>
           </Section>
 
           <Section style={footer}>
             <Text style={footerText}>GEN-Z WE'RE COMING!</Text>
-            <Link href="https://instagram.com/khushkhush.pk" style={socialLink}>@KHUSHKHUSH.PK</Link>
-            <Text style={{ ...footerText, marginTop: "20px", opacity: "0.5" }}>KHUSHKHUSH.COM</Text>
+            <Link href="https://khushkhush.com/shop" style={mainCta}>GO TO SHOP</Link>
           </Section>
         </Section>
       </Container>
@@ -129,7 +124,6 @@ const h1 = {
   fontWeight: "900",
   textTransform: "uppercase" as const,
   margin: "0 0 24px 0",
-  letterSpacing: "1px",
 };
 
 const h2 = {
@@ -137,8 +131,6 @@ const h2 = {
   fontWeight: "900",
   textTransform: "uppercase" as const,
   margin: "40px 0 20px 0",
-  borderBottom: "2px solid #333333",
-  paddingBottom: "10px",
   color: "#C8FF00",
 };
 
@@ -147,11 +139,6 @@ const text = {
   lineHeight: "1.6",
   color: "#CCCCCC",
   margin: "0 0 20px 0",
-};
-
-const highlight = {
-  color: "#C8FF00",
-  fontWeight: "bold",
 };
 
 const memeBanner = {
@@ -164,60 +151,72 @@ const memeBanner = {
 
 const urduText = {
   color: "#111111",
-  fontSize: "28px",
+  fontSize: "24px",
   fontWeight: "bold",
   margin: "0",
 };
 
 const subUrduText = {
   color: "#111111",
-  fontSize: "12px",
+  fontSize: "10px",
   fontWeight: "900",
   margin: "5px 0 0 0",
   letterSpacing: "1px",
 };
 
-const table = {
+const productGrid = {
   width: "100%",
+  marginTop: "20px",
 };
 
-const row = {
+const productItem = {
+  width: "30%",
+  display: "inline-block",
+  verticalAlign: "top",
+  marginRight: "3%",
+  textAlign: "center" as const,
+};
+
+const productImage = {
   width: "100%",
-  padding: "10px 0",
-  borderBottom: "1px solid #333333",
+  height: "auto",
+  border: "1px solid #333333",
+  marginBottom: "10px",
 };
 
-const totalRow = {
-  width: "100%",
-  padding: "20px 0",
-  marginTop: "10px",
-};
-
-const itemText = {
-  fontSize: "14px",
-  margin: "0",
-  color: "#AAAAAA",
-};
-
-const priceText = {
-  fontSize: "14px",
+const productName = {
+  fontSize: "12px",
   fontWeight: "bold",
   color: "#FFFFFF",
   margin: "0",
+  height: "36px",
+  overflow: "hidden",
 };
 
-const totalPrice = {
-  fontSize: "24px",
-  fontWeight: "900",
+const productPrice = {
+  fontSize: "12px",
   color: "#C8FF00",
-  margin: "0",
+  margin: "5px 0",
+  fontWeight: "bold",
 };
 
-const infoBox = {
-  backgroundColor: "#111111",
-  padding: "20px",
-  border: "1px solid #333333",
+const shopLink = {
+  fontSize: "10px",
+  fontWeight: "900",
+  color: "#FFFFFF",
+  textDecoration: "underline",
+};
+
+const mainCta = {
+  backgroundColor: "#C8FF00",
+  color: "#111111",
+  padding: "16px 32px",
+  fontSize: "18px",
+  fontWeight: "900",
+  textDecoration: "none",
+  display: "inline-block",
   marginTop: "20px",
+  border: "2px solid #111111",
 };
 
 const footer = {
@@ -231,13 +230,4 @@ const footerText = {
   color: "#666666",
   margin: "0",
   letterSpacing: "2px",
-};
-
-const socialLink = {
-  color: "#C8FF00",
-  fontSize: "14px",
-  fontWeight: "bold",
-  textDecoration: "none",
-  marginTop: "10px",
-  display: "block",
 };
