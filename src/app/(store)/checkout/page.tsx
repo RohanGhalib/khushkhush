@@ -180,8 +180,6 @@ export default function CheckoutPage() {
     }
   };
 
-  // Final price calculation (already handled above)
-
   return (
     <div className="min-h-screen bg-card-bg">
       <div className="max-w-7xl mx-auto px-6 py-12 md:py-24 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-24">
