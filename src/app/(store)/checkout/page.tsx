@@ -180,9 +180,7 @@ export default function CheckoutPage() {
     }
   };
 
-  const subtotal = getCartTotal();
-  const shipping = 200;
-  const total = subtotal + shipping;
+  // Final price calculation (already handled above)
 
   return (
     <div className="min-h-screen bg-card-bg">
