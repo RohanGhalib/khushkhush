@@ -26,6 +26,8 @@ export const metadata: Metadata = {
   keywords: ["streetwear", "gen-z fashion", "meme clothing", "pakistan fashion", "brutalist design", "khushkhush"],
 };
 
+import { Suspense } from "react";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -60,9 +62,11 @@ export default function RootLayout({
           <rect width="100%" height="100%" fill="url(#diagonal-text)" className="animate-pattern" />
         </svg>
         <AuthProvider>
-          <StoreLayout>
-            {children}
-          </StoreLayout>
+          <Suspense fallback={null}>
+            <StoreLayout>
+              {children}
+            </StoreLayout>
+          </Suspense>
           <Analytics />
           <CookieBanner />
         </AuthProvider>
