@@ -17,38 +17,97 @@ interface HomeClientProps {
 export function HomeClient({ products, collections }: HomeClientProps) {
   return (
     <main className="flex flex-col min-h-screen">
-      <section className="flex flex-col items-center justify-center p-8 relative overflow-hidden min-h-[90vh]">
-        <div className="z-10 flex flex-col items-center justify-center text-center">
-          <h1 className="font-twenly text-acid-green leading-none mb-6 tracking-tight flex flex-col md:block" style={{ fontSize: 'clamp(60px, 18vw, 180px)' }}>
-            <span className="block md:inline">KhUSh</span>
-            <span className="block md:inline">KhUSh.</span>
-          </h1>
-          <p className="text-pure-white text-xl md:text-3xl font-medium mb-12 animate-fade-in-up tracking-wider">
-            Gen-z We're Coming!
-          </p>
-          <Link href="/shop">
-            <button className="bg-acid-green text-void-black font-twenly text-3xl px-12 py-4 uppercase transition-all duration-300 border-2 border-transparent hover:bg-void-black hover:text-acid-green hover:border-acid-green">
-              Shop Now &rarr;
-            </button>
-          </Link>
+      {/* UPGRADED HERO SECTION */}
+      {/* UPGRADED HERO SECTION */}
+      <section className="relative flex flex-col min-h-screen bg-void-black border-b-8 border-acid-green overflow-hidden">
+        {/* Background Noise/Grid */}
+        <div className="absolute inset-0 opacity-10 pointer-events-none">
+          <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(var(--acid-green) 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
         </div>
-        <div className="absolute bottom-0 w-full bg-acid-green text-void-black py-4 marquee-container border-y-4 border-void-black font-urdu text-2xl md:text-3xl font-bold z-10">
-          <div className="marquee-content space-x-12 px-4 flex items-center">
-            <span>دنیا گول ہے منافق ماحول ہے</span>
-            <span>•</span>
-            <span>بڑے لوگ</span>
-            <span>•</span>
-            <span>درمیانے افراد</span>
-            <span>•</span>
-            <span>نوجوان</span>
-            <span>•</span>
-            <span>موٹے افراد</span>
-            <span>•</span>
-            <span>دنیا گول ہے منافق ماحول ہے</span>
-            <span>•</span>
-            <span>بڑے لوگ</span>
-            <span>•</span>
-            <span>درمیانے افراد</span>
+
+        {/* Massive Background Text */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 select-none pointer-events-none opacity-[0.03] whitespace-nowrap overflow-hidden w-full text-center">
+          <span className="font-twenly text-[40vw] font-black text-acid-green leading-none">
+            KK.
+          </span>
+        </div>
+
+        {/* Content Container */}
+        <div className="relative z-10 flex-1 w-full max-w-7xl mx-auto px-6 pt-32 pb-24 flex flex-col items-center justify-center">
+          {/* Top Label */}
+          <div className="bg-acid-green text-void-black font-sans font-black px-4 py-1 mb-8 uppercase tracking-[0.3em] text-xs md:text-sm animate-fade-in-up">
+            Aggressive Streetwear Culture
+          </div>
+
+          {/* Staggered Main Heading */}
+          <div className="relative mb-12 w-full flex justify-center">
+            <div className="relative">
+              <h1 className="font-twenly text-pure-white leading-[0.9] tracking-tighter flex flex-col items-center" style={{ fontSize: 'clamp(70px, 20vw, 240px)' }}>
+                <span className="block transform -translate-x-4 md:-translate-x-12 hover:text-acid-green transition-colors cursor-default">
+                  KhUSh
+                </span>
+                <span className="block transform translate-x-4 md:translate-x-12 text-acid-green">
+                  KhUSh.
+                </span>
+              </h1>
+              
+              {/* Floating Brutalist Badge - Positioned over the 'h' */}
+              <div className="absolute -top-8 -right-8 md:-top-12 md:-right-16 bg-pure-white text-void-black p-3 md:p-4 rotate-12 border-4 border-acid-green hidden sm:block z-20 shadow-[8px_8px_0px_rgba(200,255,0,0.5)]">
+                <p className="font-twenly font-black text-xl md:text-2xl leading-none">
+                  BVIBE<br/>EST. 2024
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col md:flex-row items-center gap-12 md:gap-16 w-full justify-between mt-8">
+            <div className="flex-1 text-center md:text-left">
+              <h2 className="font-urdu text-5xl md:text-7xl text-pure-white font-bold leading-[1.2] mb-4">
+                نہ شرم، نہ لحاظ<br/>
+                <span className="text-acid-green">صرف انداز</span>
+              </h2>
+            </div>
+
+            <div className="flex flex-col items-center md:items-end gap-6">
+              <p className="text-pure-white/80 text-lg md:text-xl font-bold uppercase tracking-widest text-center md:text-right max-w-xs leading-relaxed">
+                Forget the mid. Wear the madness.
+              </p>
+              <Link href="/shop" className="group relative">
+                <div className="absolute inset-0 bg-pure-white translate-x-2 translate-y-2 group-hover:translate-x-0 group-hover:translate-y-0 transition-transform" />
+                <button className="relative bg-acid-green text-void-black font-twenly text-3xl md:text-4xl px-8 md:px-12 py-4 md:py-5 uppercase border-2 border-void-black group-hover:-translate-x-1 group-hover:-translate-y-1 transition-transform">
+                  Shop Drop 01 &rarr;
+                </button>
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* Diagonal Marquee System - Optimized for Mobile */}
+        <div className="relative w-full mt-auto pt-16 pb-16 md:pt-40 md:pb-40 overflow-visible select-none">
+          {/* Secondary Patterned Stripe */}
+          <div 
+            className="absolute top-1/2 left-[-25vw] w-[150vw] h-14 md:h-20 bg-acid-green -rotate-2 md:-rotate-6 border-y-2 md:border-y-4 border-void-black z-10 opacity-60 -translate-y-1/2"
+            style={{ 
+              backgroundImage: 'radial-gradient(var(--void-black) 2px, transparent 2px)', 
+              backgroundSize: '10px 10px' 
+            }} 
+          />
+
+          {/* Primary Text Marquee */}
+          <div className="relative left-[-25vw] w-[150vw] bg-acid-green text-void-black py-3 md:py-5 marquee-container border-y-4 md:border-y-8 border-void-black font-urdu text-3xl md:text-5xl font-black z-20 overflow-hidden rotate-1 md:rotate-2 shadow-[0px_0px_60px_rgba(0,0,0,0.6)]">
+            <div className="marquee-content space-x-12 px-4 flex items-center">
+              <span>دنیا گول ہے منافق ماحول ہے</span>
+              <span className="font-twenly text-4xl md:text-6xl italic opacity-30">X X X</span>
+              <span>صرف اصلی لوگ</span>
+              <span className="font-twenly text-4xl md:text-6xl italic opacity-30">X X X</span>
+              <span>کوئی ڈر نہیں</span>
+              <span className="font-twenly text-4xl md:text-6xl italic opacity-30">X X X</span>
+              <span>KHUSHKHUSH VIBE</span>
+              <span className="font-twenly text-4xl md:text-6xl italic opacity-30">X X X</span>
+              <span>دنیا گول ہے منافق ماحول ہے</span>
+              <span className="font-twenly text-4xl md:text-6xl italic opacity-30">X X X</span>
+              <span>صرف اصلی لوگ</span>
+            </div>
           </div>
         </div>
       </section>
