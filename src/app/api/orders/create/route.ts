@@ -131,9 +131,14 @@ export async function POST(req: Request) {
         const results = await referralQueryRes.json();
         const document = results?.find((result: any) => result.document)?.document;
         if (document?.name) {
-          ambassadorId = document.name.split("/").pop() || null;
-          ambassadorCollege = document.fields?.college?.stringValue || "";
-          referralDiscount = Math.min(Math.round(subtotal * REFERRAL_DISCOUNT_RATE), subtotal);
+          const resolvedId = document.name.split("/").pop();
+          if (resolvedId) {
+            ambassadorId = resolvedId;
+            ambassadorCollege = document.fields?.college?.stringValue || "";
+            referralDiscount = Math.min(Math.round(subtotal * REFERRAL_DISCOUNT_RATE), subtotal);
+          } else {
+            console.warn("Referral lookup returned document without id:", document.name);
+          }
         }
       }
     }
