@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Package, Tag, Users, Settings, Mail, LogOut, Ticket, ShoppingCart } from "lucide-react";
+import { LayoutDashboard, Package, Tag, Users, Settings, Mail, LogOut, Ticket, ShoppingCart, Crown } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
@@ -44,6 +44,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: "Coupons", href: "/admin/coupons", icon: Ticket },
     { name: "Newsletter", href: "/admin/newsletter", icon: Mail },
     { name: "Users", href: "/admin/users", icon: Users },
+    { name: "Ambassadors", href: "/admin/ambassadors", icon: Crown },
     { name: "Settings", href: "/admin/settings", icon: Settings },
   ];
 

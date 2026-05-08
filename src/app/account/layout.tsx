@@ -29,6 +29,7 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
     { name: "Profile", href: "/account" },
     { name: "Orders", href: "/account/orders" },
     { name: "Wishlist", href: "/account/wishlist" },
+    { name: "خزانہ", href: "/account/vault" },
   ];
 
   return (
