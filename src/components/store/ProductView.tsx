@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useCartStore } from "@/lib/cart";
 import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import { Heart } from "lucide-react";
 import { useWishlistStore } from "@/lib/wishlistStore";
+import { track } from "@/lib/track";
 
 interface Product {
   slug: string;
@@ -44,16 +45,24 @@ export function ProductView({ product }: { product: Product }) {
   const isSoldOut = product.status === "Sold Out";
   const isOnSale = product.comparePrice && product.comparePrice > product.price;
 
+  useEffect(() => {
+    track.productView({
+      slug: product.slug,
+      name: product.name_en,
+      price: product.price,
+    });
+  }, [product.slug, product.name_en, product.price]);
+
   const handleAddToCart = () => {
     if (!selectedSize) return alert("Please select a size first!");
     if (product.colors && product.colors.length > 0 && !selectedColor) {
       return alert("Please select a color first!");
     }
-    
+
     const sizeObj = SIZE_MAP.find(s => s.key === selectedSize);
-    
+
     const colorSuffix = selectedColor ? `-${selectedColor.toLowerCase()}` : "";
-    
+
     addItem({
       id: `${product.slug}-${selectedSize}${colorSuffix}`,
       slug: product.slug,
@@ -65,6 +74,30 @@ export function ProductView({ product }: { product: Product }) {
       image: product.images[0] || "",
       qty: 1
     });
+
+    track.addToCart({
+      slug: product.slug,
+      name: product.name_en,
+      price: product.price,
+      size: sizeObj ? sizeObj.urdu : selectedSize,
+      qty: 1,
+    });
+  };
+
+  const handleToggleWishlist = () => {
+    const inList = isInWishlist(product.slug);
+    toggleItem({
+      slug: product.slug,
+      name_en: product.name_en,
+      name_ur: product.name_ur,
+      price: product.price,
+      image: product.images[0] || "",
+    });
+    if (inList) {
+      track.removeFromWishlist({ slug: product.slug, name: product.name_en, price: product.price });
+    } else {
+      track.addToWishlist({ slug: product.slug, name: product.name_en, price: product.price });
+    }
   };
 
   return (
@@ -197,14 +230,8 @@ export function ProductView({ product }: { product: Product }) {
               {isSoldOut ? "SOLD OUT" : !selectedSize ? "SELECT A SIZE" : (product.colors && product.colors.length > 0 && !selectedColor) ? "SELECT A COLOR" : "ADD TO CART"}
             </Button>
             
-            <button 
-              onClick={() => toggleItem({
-                slug: product.slug,
-                name_en: product.name_en,
-                name_ur: product.name_ur,
-                price: product.price,
-                image: product.images[0] || ""
-              })}
+            <button
+              onClick={handleToggleWishlist}
               className={cn(
                 "w-16 h-16 flex items-center justify-center border-4 transition-all",
                 isWishlisted 

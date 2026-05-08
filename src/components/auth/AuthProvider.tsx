@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { onAuthStateChanged } from "firebase/auth";
+import posthog from "posthog-js";
 import { auth } from "@/lib/firebase";
 import { useAuthStore } from "@/lib/authStore";
 
@@ -13,7 +14,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(user);
       if (user) {
         try {
-          // Fetch the ID token and get its claims
           const tokenResult = await user.getIdTokenResult();
           const hasAdminClaim = !!tokenResult.claims.admin;
           setIsAdmin(hasAdminClaim);
@@ -21,8 +21,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.error("Error fetching claims:", error);
           setIsAdmin(false);
         }
+        if (posthog.__loaded) {
+          posthog.identify(user.uid, {
+            email: user.email || undefined,
+            name: user.displayName || undefined,
+          });
+        }
       } else {
         setIsAdmin(false);
+        if (posthog.__loaded) posthog.reset();
       }
       setLoading(false);
     });

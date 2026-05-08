@@ -4,6 +4,7 @@ import { AuthProvider } from "@/components/auth/AuthProvider";
 import { StoreLayout } from "@/components/layout/StoreLayout";
 import { Analytics } from "@vercel/analytics/next";
 import { CookieBanner } from "@/components/ui/CookieBanner";
+import { PostHogProvider } from "@/components/analytics/PostHogProvider";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -38,7 +39,10 @@ export default function RootLayout({
       lang="en"
       className={`${dmSans.variable} ${notoNastaliq.variable} h-full antialiased dark`}
     >
-      <body className="min-h-full flex flex-col bg-void-black text-pure-white font-sans selection:bg-acid-green selection:text-void-black relative">
+      <body
+        suppressHydrationWarning
+        className="min-h-full flex flex-col bg-void-black text-pure-white font-sans selection:bg-acid-green selection:text-void-black relative"
+      >
         <svg
           className="fixed inset-0 w-full h-full -z-10 pointer-events-none opacity-[0.03]"
           xmlns="http://www.w3.org/2000/svg"
@@ -61,15 +65,17 @@ export default function RootLayout({
           </defs>
           <rect width="100%" height="100%" fill="url(#diagonal-text)" className="animate-pattern" />
         </svg>
-        <AuthProvider>
-          <Suspense fallback={null}>
-            <StoreLayout>
-              {children}
-            </StoreLayout>
-          </Suspense>
-          <Analytics />
-          <CookieBanner />
-        </AuthProvider>
+        <PostHogProvider>
+          <AuthProvider>
+            <Suspense fallback={null}>
+              <StoreLayout>
+                {children}
+              </StoreLayout>
+            </Suspense>
+            <Analytics />
+            <CookieBanner />
+          </AuthProvider>
+        </PostHogProvider>
       </body>
     </html>
   );

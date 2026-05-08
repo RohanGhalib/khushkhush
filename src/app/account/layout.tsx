@@ -28,6 +28,7 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
   const navItems = [
     { name: "Profile", href: "/account" },
     { name: "Orders", href: "/account/orders" },
+    { name: "The Khata", href: "/account/vault" },
     { name: "Wishlist", href: "/account/wishlist" },
   ];
 

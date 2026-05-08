@@ -7,7 +7,15 @@ import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import Image from "next/image";
-import { getUserProfile, updateUserProfile } from "@/lib/firestore";
+import {
+  getUserProfile,
+  updateUserProfile,
+  KHUSBASSADOR_CONFIG,
+  fetchKhusbassadorConfig,
+  type KhusbassadorConfig,
+} from "@/lib/firestore";
+import { KhushCoinIcon } from "@/components/ambassador/KhushCoinIcon";
+import { track } from "@/lib/track";
 
 interface ServerCoupon {
   valid: true;
@@ -33,15 +41,35 @@ export default function CheckoutPage() {
     postalCode: "",
   });
   const [loadingProfile, setLoadingProfile] = useState(true);
+  const [couponCode, setCouponCode] = useState("");
+  const [referralCode, setReferralCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<ServerCoupon | null>(null);
+  const [couponError, setCouponError] = useState("");
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [coinBalance, setCoinBalance] = useState(0);
+  const [coinsToRedeem, setCoinsToRedeem] = useState(0);
+  const [config, setConfig] = useState<KhusbassadorConfig>(KHUSBASSADOR_CONFIG);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchKhusbassadorConfig().then((c) => {
+      if (!cancelled) setConfig(c);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Pre-fill from Auth and fetch saved profile
   useEffect(() => {
     if (user) {
-      setFormData(prev => ({
-        ...prev,
-        fullName: prev.fullName || user.displayName || "",
-        email: prev.email || user.email || "",
-      }));
+      const timer = window.setTimeout(() => {
+        setFormData(prev => ({
+          ...prev,
+          fullName: prev.fullName || user.displayName || "",
+          email: prev.email || user.email || "",
+        }));
+      }, 0);
 
       const fetchProfile = async () => {
         setLoadingProfile(true);
@@ -56,14 +84,20 @@ export default function CheckoutPage() {
               city: prev.city || profile.city || "",
               postalCode: prev.postalCode || profile.postalCode || "",
             }));
+            setCoinBalance(Number(profile.khushCoins) || 0);
           }
         } finally {
           setLoadingProfile(false);
         }
       };
       fetchProfile();
+      return () => window.clearTimeout(timer);
     } else if (!loadingAuth) {
-      setLoadingProfile(false);
+      const timer = window.setTimeout(() => {
+        setLoadingProfile(false);
+      }, 0);
+
+      return () => window.clearTimeout(timer);
     }
   }, [user, loadingAuth]);
 
@@ -78,22 +112,32 @@ export default function CheckoutPage() {
     }
   }, [items, router, isSuccess, user, loadingAuth]);
 
+  useEffect(() => {
+    if (items.length > 0 && !isSuccess) {
+      track.beginCheckout({
+        itemCount: items.reduce((s, i) => s + i.qty, 0),
+        subtotal: getCartTotal(),
+      });
+    }
+    // Only fire once per checkout session
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   if (items.length === 0 && !isSuccess) return null;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const [couponCode, setCouponCode] = useState("");
-  const [appliedCoupon, setAppliedCoupon] = useState<ServerCoupon | null>(null);
-  const [couponError, setCouponError] = useState("");
-  const [couponLoading, setCouponLoading] = useState(false);
-
   const subtotal = getCartTotal();
   const shipping = 200;
 
   // Discount is always the server-verified value — cannot be spoofed by the client
-  const discount = appliedCoupon?.finalDiscount ?? 0;
+  const couponDiscount = appliedCoupon?.finalDiscount ?? 0;
+  const coinCap = Math.floor((subtotal * config.maxCoinRedemptionPercent) / 100);
+  const maxCoins = Math.max(0, Math.min(coinBalance, coinCap, Math.max(0, subtotal - couponDiscount)));
+  const safeCoinsToRedeem = Math.min(coinsToRedeem, maxCoins);
+  const discount = couponDiscount + safeCoinsToRedeem;
   const total = Math.max(0, subtotal + shipping - discount);
 
   const handleApplyCoupon = async () => {
@@ -152,6 +196,8 @@ export default function CheckoutPage() {
           subtotal: subtotal,
           shipping: shipping,
           couponCode: appliedCoupon?.code || null,
+          referralCode: referralCode.trim() || null,
+          coinsToRedeem: safeCoinsToRedeem,
         }),
       });
 
@@ -189,13 +235,21 @@ export default function CheckoutPage() {
         }),
       }).catch(err => console.error("Failed to send receipt email:", err));
 
+      track.purchase({
+        orderId,
+        total: finalTotal,
+        itemCount: items.reduce((s, i) => s + i.qty, 0),
+        referralCode: referralCode.trim() || null,
+        couponCode: appliedCoupon?.code || null,
+      });
+
       // Clear cart and redirect
       setIsSuccess(true);
       clearCart();
       router.push(`/order/${orderId}/confirmed`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error creating order:", error);
-      alert(error.message || "Failed to process order. Please try again.");
+      alert(error instanceof Error ? error.message : "Failed to process order. Please try again.");
       setLoading(false);
     }
   };
@@ -340,6 +394,62 @@ export default function CheckoutPage() {
                   COUPON: {appliedCoupon.code} (-{appliedCoupon.type === "percent" ? `${appliedCoupon.discountAmount}%` : `Rs.${appliedCoupon.discountAmount}`})
                 </p>
                 <button onClick={() => setAppliedCoupon(null)} className="text-acid-green text-[10px] font-black underline">REMOVE</button>
+              </div>
+            )}
+
+            <div className="mb-6">
+              <label className="mb-2 block font-sans text-[10px] font-black uppercase tracking-widest text-gray-500">
+                Khusbassador Code
+              </label>
+              <Input
+                placeholder="REFERRAL CODE"
+                value={referralCode}
+                onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                className="h-10 text-xs tracking-widest"
+              />
+              <p className="mt-1 font-sans text-[10px] font-bold uppercase text-gray-500">
+                Valid codes apply the ambassador discount at checkout.
+              </p>
+            </div>
+
+            {coinBalance > 0 && (
+              <div className="mb-6 border-2 border-acid-green bg-acid-green/5 p-4">
+                <div className="flex items-center gap-3">
+                  <KhushCoinIcon size={36} />
+                  <div className="flex-1">
+                    <p className="font-sans text-[10px] font-black uppercase tracking-widest text-acid-green">
+                      KhushCoins available
+                    </p>
+                    <p className="font-twenly text-2xl uppercase text-pure-white">
+                      {coinBalance.toLocaleString()}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setCoinsToRedeem(maxCoins)}
+                    className="border-2 border-acid-green px-3 py-2 font-twenly text-xs uppercase text-acid-green hover:bg-acid-green hover:text-void-black"
+                  >
+                    MAX
+                  </button>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={maxCoins}
+                  step={10}
+                  value={safeCoinsToRedeem}
+                  onChange={(e) => setCoinsToRedeem(Number(e.target.value))}
+                  disabled={maxCoins === 0}
+                  className="mt-3 w-full accent-acid-green disabled:opacity-50"
+                />
+                <div className="mt-1 flex items-center justify-between font-sans text-[10px] font-bold uppercase tracking-widest">
+                  <span className="text-gray-500">
+                    Spend {safeCoinsToRedeem.toLocaleString()} = -Rs. {safeCoinsToRedeem.toLocaleString()}
+                  </span>
+                  <span className="text-gray-500">
+                    Cap: {config.maxCoinRedemptionPercent}% of subtotal
+                  </span>
+                </div>
               </div>
             )}
 

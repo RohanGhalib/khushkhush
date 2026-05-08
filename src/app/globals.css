@@ -102,3 +102,15 @@ body {
   background: var(--acid-green);
   color: var(--void-black);
 }
+
+.bg-acid-green ::selection,
+.bg-acid-green::selection {
+  background: var(--void-black);
+  color: var(--acid-green);
+}
+
+.bg-pure-white ::selection,
+.bg-pure-white::selection {
+  background: var(--void-black);
+  color: var(--acid-green);
+}
