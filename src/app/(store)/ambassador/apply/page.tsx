@@ -112,7 +112,7 @@ export default function AmbassadorApplyPage() {
             )}
 
             <Button type="submit" variant="primary" className="w-full h-16 text-2xl" disabled={status === "loading"}>
-              {status === "loading" ? "..." : "APPLY KARDO"}
+              {status === "loading" ? "SUBMITTING..." : "APPLY KARDO"}
             </Button>
           </form>
         </div>

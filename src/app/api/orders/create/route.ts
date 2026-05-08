@@ -131,7 +131,13 @@ export async function POST(req: Request) {
 
     const totalDiscount = Math.min(subtotal, verifiedDiscount + referralDiscount);
     const verifiedTotal = Math.max(0, subtotal + shipping - totalDiscount);
-    const shirtCount = items.reduce((sum: number, item: any) => sum + Math.max(0, Number(item.qty) || 0), 0);
+    const shirtCount = items.reduce((sum: number, item: any) => {
+      const label = `${item?.name_en ?? ""} ${item?.slug ?? ""}`.toLowerCase();
+      const typeHint = `${item?.type ?? item?.category ?? ""}`.toLowerCase();
+      const isShirt = label.includes("tee") || label.includes("shirt") || typeHint.includes("tee") || typeHint.includes("shirt");
+      const qty = Math.max(0, Number(item.qty) || 0);
+      return sum + (isShirt ? qty : 0);
+    }, 0);
 
     const orderId = crypto.randomUUID();
     const orderDocName = `projects/${projectId}/databases/(default)/documents/orders/${orderId}`;

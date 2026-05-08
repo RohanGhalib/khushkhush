@@ -14,6 +14,7 @@ interface AmbassadorApplication {
   status: "pending" | "active" | "rejected";
   userId?: string | null;
   referralCode?: string | null;
+  userLinked?: boolean;
   createdAt?: any;
 }
 
@@ -24,7 +25,7 @@ interface CollegeStat {
 
 const generateReferralCode = (name: string, email: string) => {
   const base = (email.split("@")[0] || name || "KHUSH").replace(/[^a-zA-Z0-9]/g, "").slice(0, 4);
-  const suffix = Math.floor(1000 + Math.random() * 9000);
+  const suffix = crypto.randomUUID().split("-")[0].toUpperCase();
   return `KK-${base.toUpperCase()}-${suffix}`;
 };
 
@@ -81,16 +82,17 @@ export default function AdminAmbassadorsPage() {
 
     if (application.userId) {
       await setDoc(doc(db, "users", String(application.userId)), payload, { merge: true });
-      return;
+      return true;
     }
 
     const userQuery = query(collection(db, "users"), where("email", "==", application.email));
     const userSnap = await getDocs(userQuery);
     if (userSnap.size !== 1) {
       console.warn("Ambassador email lookup mismatch:", application.email, userSnap.size);
-      return;
+      return false;
     }
     await setDoc(userSnap.docs[0].ref, payload, { merge: true });
+    return true;
   };
 
   const handleStatus = async (application: AmbassadorApplication, status: "active" | "rejected") => {
@@ -101,17 +103,19 @@ export default function AdminAmbassadorsPage() {
           ? application.referralCode || generateReferralCode(application.name, application.email)
           : null;
 
+      const userLinked = await updateUserRecords(application, status, referralCode || undefined);
       await updateDoc(doc(db, "ambassadorApplications", application.id), {
         status,
         referralCode: referralCode || null,
+        userLinked,
         updatedAt: serverTimestamp(),
       });
 
-      await updateUserRecords(application, status, referralCode || undefined);
-
       setApplications((prev) =>
         prev.map((app) =>
-          app.id === application.id ? { ...app, status, referralCode: referralCode || null } : app
+          app.id === application.id
+            ? { ...app, status, referralCode: referralCode || null, userLinked }
+            : app
         )
       );
     } catch (error) {

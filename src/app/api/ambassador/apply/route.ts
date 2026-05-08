@@ -9,26 +9,26 @@ export async function POST(req: Request) {
     const { success } = await rateLimit(`ambassador-apply-${ip}`, 5, 3600000);
 
     if (!success) {
-      return NextResponse.json({ error: "Too many attempts. Chill." }, { status: 429 });
+      return NextResponse.json({ error: "Zyada attempts. Baad mein aana." }, { status: 429 });
     }
 
     const body = await req.json();
     const { name, email, instagram, college, reason, userId } = body || {};
 
     if (!name || typeof name !== "string") {
-      return NextResponse.json({ error: "Name missing." }, { status: 400 });
+      return NextResponse.json({ error: "Naam likho." }, { status: 400 });
     }
     if (!email || typeof email !== "string" || !EMAIL_REGEX.test(email.trim())) {
-      return NextResponse.json({ error: "Email looks sus." }, { status: 400 });
+      return NextResponse.json({ error: "Email theek nahi." }, { status: 400 });
     }
     if (!instagram || typeof instagram !== "string") {
-      return NextResponse.json({ error: "Instagram handle required." }, { status: 400 });
+      return NextResponse.json({ error: "Instagram handle chahiye." }, { status: 400 });
     }
     if (!college || typeof college !== "string") {
-      return NextResponse.json({ error: "College naam do." }, { status: 400 });
+      return NextResponse.json({ error: "College ka naam chahiye." }, { status: 400 });
     }
     if (!reason || typeof reason !== "string") {
-      return NextResponse.json({ error: "Reason missing." }, { status: 400 });
+      return NextResponse.json({ error: "Reason likho." }, { status: 400 });
     }
 
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
