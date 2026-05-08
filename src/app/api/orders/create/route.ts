@@ -70,6 +70,18 @@ export async function POST(req: Request) {
       }
     }
 
+    const shirtCount = items.reduce((sum: number, item: any) => {
+      const label = `${item?.name_en ?? ""} ${item?.slug ?? ""}`.toLowerCase();
+      const typeHint = `${item?.type ?? item?.category ?? ""}`.toLowerCase();
+      const isShirt =
+        label.includes("tee") ||
+        label.includes("shirt") ||
+        typeHint.includes("tee") ||
+        typeHint.includes("shirt");
+      const qty = Math.max(0, Number(item.qty) || 0);
+      return sum + (isShirt ? qty : 0);
+    }, 0);
+
     const normalizedReferralCode = typeof referralCode === "string" && referralCode.trim()
       ? normalizeCode(referralCode)
       : null;
@@ -78,7 +90,7 @@ export async function POST(req: Request) {
     let ambassadorCollege = "";
     let referralDiscount = 0;
 
-    if (normalizedReferralCode) {
+    if (normalizedReferralCode && shirtCount > 0) {
       const referralQueryUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:runQuery?key=${apiKey}`;
       const referralQueryRes = await fetch(referralQueryUrl, {
         method: "POST",
@@ -121,23 +133,13 @@ export async function POST(req: Request) {
         if (document?.name) {
           ambassadorId = document.name.split("/").pop() || null;
           ambassadorCollege = document.fields?.college?.stringValue || "";
-          referralDiscount = Math.min(
-            Math.round(subtotal * REFERRAL_DISCOUNT_RATE),
-            subtotal
-          );
+          referralDiscount = Math.min(Math.round(subtotal * REFERRAL_DISCOUNT_RATE), subtotal);
         }
       }
     }
 
     const totalDiscount = Math.min(subtotal, verifiedDiscount + referralDiscount);
     const verifiedTotal = Math.max(0, subtotal + shipping - totalDiscount);
-    const shirtCount = items.reduce((sum: number, item: any) => {
-      const label = `${item?.name_en ?? ""} ${item?.slug ?? ""}`.toLowerCase();
-      const typeHint = `${item?.type ?? item?.category ?? ""}`.toLowerCase();
-      const isShirt = label.includes("tee") || label.includes("shirt") || typeHint.includes("tee") || typeHint.includes("shirt");
-      const qty = Math.max(0, Number(item.qty) || 0);
-      return sum + (isShirt ? qty : 0);
-    }, 0);
 
     const orderId = crypto.randomUUID();
     const orderDocName = `projects/${projectId}/databases/(default)/documents/orders/${orderId}`;
@@ -179,7 +181,7 @@ export async function POST(req: Request) {
       couponDiscount: { integerValue: String(Math.round(verifiedDiscount)) },
       referralDiscount: { integerValue: String(Math.round(referralDiscount)) },
       appliedCoupon: finalCouponCode ? { stringValue: finalCouponCode } : { nullValue: "NULL_VALUE" },
-      referralCode: normalizedReferralCode ? { stringValue: normalizedReferralCode } : { nullValue: "NULL_VALUE" },
+      referralCode: ambassadorId ? { stringValue: normalizedReferralCode as string } : { nullValue: "NULL_VALUE" },
       ambassadorId: ambassadorId ? { stringValue: ambassadorId } : { nullValue: "NULL_VALUE" },
       total: { integerValue: String(Math.round(verifiedTotal)) },
       status: { stringValue: "Pending" },
