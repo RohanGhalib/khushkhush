@@ -87,8 +87,8 @@ export default function SeedDatabasePage() {
 
       // 3. Seed Users
       const users = [
-        { id: "user_1", name: "Ahmad Khan", email: "ahmad@example.com", phone: "03001234567", role: "user" },
-        { id: "user_2", name: "Zainab Ali", email: "zainab@example.com", phone: "03219876543", role: "user" }
+        { id: "user_1", name: "Ahmad Khan", email: "ahmad@example.com", phone: "03001234567", role: "customer" },
+        { id: "user_2", name: "Zainab Ali", email: "zainab@example.com", phone: "03219876543", role: "customer" }
       ];
 
       for (const u of users) {
