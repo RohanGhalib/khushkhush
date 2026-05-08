@@ -17,10 +17,9 @@ export function StoreLayout({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams();
   const { isAdmin: isUserAdmin, loading } = useAuthStore();
   const isAdminPath = pathname?.startsWith("/admin");
-  const isAuthPath = pathname?.startsWith("/auth");
   const isPreview = searchParams?.get("preview") === "coming-soon";
 
-  if (isAdminPath || isAuthPath) {
+  if (isAdminPath) {
     return <>{children}</>;
   }
 

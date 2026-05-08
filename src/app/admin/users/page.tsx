@@ -74,7 +74,7 @@ export default function AdminUsersPage() {
                     <td className="p-4 font-bold">{user.name}</td>
                     <td className="p-4 text-gray-400">{user.email}</td>
                     <td className="p-4 text-gray-400">{user.phone || "-"}</td>
-                    <td className="p-4 uppercase text-xs font-bold text-acid-green">{user.role || "user"}</td>
+                    <td className="p-4 uppercase text-xs font-bold text-acid-green">{user.role || "customer"}</td>
                     <td className="p-4 text-right space-x-2">
                       <Button variant="outline" className="text-xs py-1 h-auto px-2 border-red-500 text-red-500 hover:bg-red-500 hover:text-pure-white" onClick={() => handleDelete(user.id)}>
                         DELETE

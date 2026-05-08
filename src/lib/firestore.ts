@@ -9,37 +9,6 @@ export interface UserProfileUpdate {
   postalCode?: string;
 }
 
-export type UserRole = "user" | "admin" | "ambassador";
-export type AmbassadorStatus = "pending" | "active" | "rejected";
-
-export interface AmbassadorApplication {
-  id: string;
-  name: string;
-  email: string;
-  instagram: string;
-  college: string;
-  reason: string;
-  status: AmbassadorStatus;
-  createdAt: unknown;
-  userId?: string;
-}
-
-export interface VaultBalance {
-  balance: number;
-  updatedAt?: unknown;
-}
-
-export interface ReferralRecord {
-  orderId: string;
-  ambassadorId: string;
-  referralCode: string;
-  amountAddedToVault: number;
-  amountEarnedByAmbassador: number;
-  shirtCount: number;
-  college?: string;
-  createdAt: unknown;
-}
-
 export async function createUserDocument(uid: string, data: { email: string; name: string; phone?: string }) {
   const userRef = doc(db, "users", uid);
   const snapshot = await getDoc(userRef);
@@ -50,10 +19,7 @@ export async function createUserDocument(uid: string, data: { email: string; nam
         email: data.email,
         name: data.name,
         phone: data.phone || "",
-        role: "user" as UserRole,
-        college: "",
-        referralCode: "",
-        ambassadorEarnings: 0,
+        role: "customer",
         wishlist: [],
         createdAt: serverTimestamp(),
       });
