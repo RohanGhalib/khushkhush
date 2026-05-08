@@ -86,9 +86,11 @@ export default function AdminAmbassadorsPage() {
 
     const userQuery = query(collection(db, "users"), where("email", "==", application.email));
     const userSnap = await getDocs(userQuery);
-    await Promise.all(
-      userSnap.docs.map((userDoc) => setDoc(userDoc.ref, payload, { merge: true }))
-    );
+    if (userSnap.size !== 1) {
+      console.warn("Ambassador email lookup mismatch:", application.email, userSnap.size);
+      return;
+    }
+    await setDoc(userSnap.docs[0].ref, payload, { merge: true });
   };
 
   const handleStatus = async (application: AmbassadorApplication, status: "active" | "rejected") => {

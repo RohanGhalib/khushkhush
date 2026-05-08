@@ -6,7 +6,10 @@ import { db } from "@/lib/firebase";
 import { useAuthStore } from "@/lib/authStore";
 import { Button } from "@/components/ui/Button";
 
-const VAULT_GOAL = 50000;
+const DEFAULT_VAULT_GOAL = 50000;
+const VAULT_GOAL = Number.isFinite(Number(process.env.NEXT_PUBLIC_VAULT_GOAL))
+  ? Number(process.env.NEXT_PUBLIC_VAULT_GOAL)
+  : DEFAULT_VAULT_GOAL;
 
 export default function VaultPage() {
   const { user } = useAuthStore();

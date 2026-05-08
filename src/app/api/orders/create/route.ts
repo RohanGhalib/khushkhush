@@ -199,8 +199,9 @@ export async function POST(req: Request) {
       });
 
       if (vaultCheckRes.status === 404) {
-        await fetch(`${vaultDocUrl}&updateMask.fieldPaths=balance&updateMask.fieldPaths=createdAt`, {
-          method: "PATCH",
+        const vaultCreateUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/vault?documentId=${VAULT_DOC_ID}&key=${apiKey}`;
+        await fetch(vaultCreateUrl, {
+          method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
           body: JSON.stringify({
             fields: {

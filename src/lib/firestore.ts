@@ -53,7 +53,6 @@ export async function createUserDocument(uid: string, data: { email: string; nam
         role: "user" as UserRole,
         college: "",
         referralCode: "",
-        ambassadorStatus: "rejected" as AmbassadorStatus,
         ambassadorEarnings: 0,
         wishlist: [],
         createdAt: serverTimestamp(),
