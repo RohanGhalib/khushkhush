@@ -18,7 +18,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   // Helper to safely fetch from Firestore REST
-  async function fetchFromFirestore(collection: string) {
+  async function fetchFromFirestore(collection: string): Promise<{ slug: string; updatedAt: string }[]> {
     if (!projectId || !apiKey) return [];
     try {
       const res = await fetch(
