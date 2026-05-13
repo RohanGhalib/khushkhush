@@ -19,12 +19,38 @@ const notoNastaliq = Noto_Nastaliq_Urdu({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://khushkhush.com'),
   title: {
     default: "KhushKhush. | Gen-z Streetwear & Meme Culture",
     template: "%s | KhushKhush."
   },
   description: "Aggressive Gen-z streetwear. Meme-inspired drops. Brutalist aesthetic. Premium quality shirts, hoodies, and accessories.",
   keywords: ["streetwear", "gen-z fashion", "meme clothing", "pakistan fashion", "brutalist design", "khushkhush"],
+  alternates: {
+    canonical: '/',
+  },
+  openGraph: {
+    title: "KhushKhush. | Gen-z Streetwear",
+    description: "Aggressive Gen-z streetwear. Meme-inspired drops. Brutalist aesthetic.",
+    url: '/',
+    siteName: 'KhushKhush',
+    images: [
+      {
+        url: '/api/og',
+        width: 1200,
+        height: 630,
+        alt: 'KhushKhush. | Gen-z Streetwear',
+      },
+    ],
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: "KhushKhush. | Gen-z Streetwear",
+    description: "Aggressive Gen-z streetwear. Meme-inspired drops. Brutalist aesthetic.",
+    images: ['/api/og'],
+  },
 };
 
 import { Suspense } from "react";
@@ -76,6 +102,23 @@ export default function RootLayout({
             <CookieBanner />
           </AuthProvider>
         </PostHogProvider>
+        {/* Structured Data (JSON-LD) for SEO */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              "name": "KhushKhush",
+              "url": "https://khushkhush.com",
+              "logo": "https://khushkhush.com/icon.tsx",
+              "description": "Aggressive Gen-z streetwear. Meme-inspired drops. Brutalist aesthetic.",
+              "sameAs": [
+                "https://instagram.com/khushkhush.pk"
+              ]
+            })
+          }}
+        />
       </body>
     </html>
   );
