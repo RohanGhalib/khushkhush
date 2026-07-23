@@ -2,8 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
-import { doc, getDoc, updateDoc, serverTimestamp, collection, getDocs } from "firebase/firestore";
-import { db, auth } from "@/lib/firebase";
+import { supabase } from "@/lib/supabase";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { ImageUploader } from "@/components/admin/ImageUploader";
@@ -20,24 +19,6 @@ export default function EditProductPage({ params }: Props) {
   const [saving, setSaving] = useState(false);
   
   const [collections, setCollections] = useState<any[]>([]);
-
-  const triggerRevalidation = async (paths: string[]) => {
-    try {
-      const idToken = await auth.currentUser?.getIdToken();
-      if (!idToken) return;
-
-      await fetch("/api/revalidate", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${idToken}`
-        },
-        body: JSON.stringify({ paths }),
-      });
-    } catch (err) {
-      console.error("Revalidation failed:", err);
-    }
-  };
 
   const [formData, setFormData] = useState({
     name_en: "",
@@ -61,8 +42,8 @@ export default function EditProductPage({ params }: Props) {
 
   useEffect(() => {
     const fetchCollections = async () => {
-      const snapshot = await getDocs(collection(db, "collections"));
-      setCollections(snapshot.docs.map(doc => ({ slug: doc.id, ...doc.data() })));
+      const { data } = await supabase.from("collections").select("*");
+      setCollections(data || []);
     };
     fetchCollections();
   }, []);
@@ -70,22 +51,32 @@ export default function EditProductPage({ params }: Props) {
   useEffect(() => {
     async function fetchProduct() {
       try {
-        const docRef = doc(db, "products", slug);
-        const snap = await getDoc(docRef);
-        if (snap.exists()) {
-          const data = snap.data();
-          setFormData({
-            ...formData,
-            ...data,
-            price: data.price?.toString() || "",
-            comparePrice: data.comparePrice?.toString() || "",
-            tags: data.tags?.join(", ") || "",
-            colors: data.colors?.join(", ") || "",
-          });
-        } else {
+        const { data, error } = await supabase
+          .from("products")
+          .select("*")
+          .eq("slug", slug)
+          .single();
+
+        if (error || !data) {
           alert("Product not found");
           router.push("/admin/products");
+          return;
         }
+
+        setFormData({
+          name_en: data.title || data.name_en || "",
+          name_ur: data.name_ur || "",
+          price: data.price?.toString() || "",
+          comparePrice: data.compare_at_price?.toString() || data.comparePrice?.toString() || "",
+          description: data.description || "",
+          images: data.images || [],
+          sizes: data.sizes || { barray_log: 0, darmiane: 0, nojawan: 0, mote_afraad: 0 },
+          status: data.status || "Active",
+          featured: !!data.featured,
+          tags: Array.isArray(data.tags) ? data.tags.join(", ") : "",
+          colors: Array.isArray(data.colors) ? data.colors.join(", ") : "",
+          collectionSlug: data.collection_slug || "",
+        });
       } catch (error) {
         console.error("Error fetching product:", error);
       } finally {
@@ -113,24 +104,29 @@ export default function EditProductPage({ params }: Props) {
     setSaving(true);
 
     try {
-      const productRef = doc(db, "products", slug);
-      await updateDoc(productRef, {
-        ...formData,
+      const payload = {
+        title: formData.name_en,
+        description: formData.description,
         price: Number(formData.price),
-        comparePrice: formData.comparePrice ? Number(formData.comparePrice) : null,
-        tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean),
-        colors: formData.colors.split(',').map(c => c.trim()).filter(Boolean),
-        updatedAt: serverTimestamp(),
-      });
+        compare_at_price: formData.comparePrice ? Number(formData.comparePrice) : null,
+        images: formData.images,
+        status: formData.status,
+        collection_slug: formData.collectionSlug,
+        sizes: formData.sizes,
+      };
 
-      // Trigger instant cache refresh for storefront
-      await triggerRevalidation(["/", "/shop", `/product/${slug}`]);
+      const { error } = await supabase
+        .from("products")
+        .update(payload)
+        .eq("slug", slug);
+
+      if (error) throw error;
 
       alert("Product updated!");
       router.push("/admin/products");
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert("Failed to update product");
+      alert("Failed to update product: " + (error.message || "Unknown error"));
     } finally {
       setSaving(false);
     }
@@ -153,7 +149,6 @@ export default function EditProductPage({ params }: Props) {
 
       <form onSubmit={handleSubmit} className="space-y-8">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Main Info */}
           <div className="space-y-6">
             <div className="bg-card-bg p-6 border-2 border-gray-800 space-y-4">
               <h2 className="font-sans font-bold uppercase text-acid-green mb-4">General</h2>
@@ -164,8 +159,8 @@ export default function EditProductPage({ params }: Props) {
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase mb-2 text-gray-400">Name (Urdu) <span className="text-acid-green">(اردو)</span></label>
-                <Input name="name_ur" value={formData.name_ur} onChange={handleChange} dir="rtl" className="font-urdu" required />
+                <label className="block text-xs font-bold uppercase mb-2 text-gray-400 font-urdu">Name (Urdu)</label>
+                <Input name="name_ur" value={formData.name_ur} onChange={handleChange} dir="rtl" className="font-urdu" />
               </div>
 
               <div>
@@ -191,7 +186,6 @@ export default function EditProductPage({ params }: Props) {
             </div>
           </div>
 
-          {/* Pricing & Inventory */}
           <div className="space-y-6">
             <div className="bg-card-bg p-6 border-2 border-gray-800 space-y-4">
               <h2 className="font-sans font-bold uppercase text-acid-green mb-4">Pricing</h2>
@@ -204,22 +198,6 @@ export default function EditProductPage({ params }: Props) {
                   <label className="block text-xs font-bold uppercase mb-2 text-gray-400">Compare-at Price</label>
                   <Input name="comparePrice" type="number" value={formData.comparePrice} onChange={handleChange} />
                 </div>
-              </div>
-            </div>
-
-            <div className="bg-card-bg p-6 border-2 border-gray-800 space-y-4">
-              <h2 className="font-sans font-bold uppercase text-acid-green mb-4">Inventory (Sizes)</h2>
-              <div className="grid grid-cols-2 gap-4">
-                {Object.keys(formData.sizes).map((sizeKey) => (
-                   <div key={sizeKey}>
-                    <label className="block text-xs font-bold uppercase mb-2 text-gray-400 capitalize">{sizeKey.replace('_', ' ')}</label>
-                    <Input 
-                      type="number" 
-                      value={formData.sizes[sizeKey as keyof typeof formData.sizes]} 
-                      onChange={(e) => handleSizeChange(sizeKey as keyof typeof formData.sizes, e.target.value)} 
-                    />
-                  </div>
-                ))}
               </div>
             </div>
 
@@ -253,27 +231,6 @@ export default function EditProductPage({ params }: Props) {
                     <option key={col.slug} value={col.slug}>{col.title_en || col.title}</option>
                   ))}
                 </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase mb-2 text-gray-400">Tags (Comma separated)</label>
-                <Input name="tags" value={formData.tags} onChange={handleChange} />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase mb-2 text-gray-400">Colors (Comma separated)</label>
-                <Input name="colors" value={formData.colors} onChange={handleChange} />
-              </div>
-
-              <div className="flex items-center gap-3 mt-4">
-                <input 
-                  type="checkbox" 
-                  name="featured" 
-                  checked={formData.featured} 
-                  onChange={handleChange}
-                  className="w-5 h-5 accent-acid-green"
-                />
-                <label className="text-sm font-bold uppercase text-pure-white">Featured Product</label>
               </div>
             </div>
           </div>

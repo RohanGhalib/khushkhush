@@ -1,4 +1,4 @@
--- Supabase Schema for KhushKhush
+-- Supabase Schema for KhushKhush with Permissive RLS Policies
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
@@ -141,7 +141,7 @@ CREATE TABLE IF NOT EXISTS public.coin_ledger (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- RLS & Policies
+-- Enable RLS
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.collections ENABLE ROW LEVEL SECURITY;
@@ -151,13 +151,30 @@ ALTER TABLE public.newsletter ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.vault ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Allow public read access to products" ON public.products FOR SELECT USING (true);
-CREATE POLICY "Allow public read access to collections" ON public.collections FOR SELECT USING (true);
-CREATE POLICY "Allow public read access to settings" ON public.settings FOR SELECT USING (true);
-CREATE POLICY "Allow public read access to vault" ON public.vault FOR SELECT USING (true);
-CREATE POLICY "Users can read own profile" ON public.users FOR SELECT USING (auth.uid() = id);
-CREATE POLICY "Users can update own profile" ON public.users FOR UPDATE USING (auth.uid() = id);
-CREATE POLICY "Public newsletter subscribe" ON public.newsletter FOR INSERT WITH CHECK (true);
+-- Permissive RLS Policies for all operations (Select, Insert, Update, Delete)
+DROP POLICY IF EXISTS "Public access products" ON public.products;
+CREATE POLICY "Public access products" ON public.products FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public access collections" ON public.collections;
+CREATE POLICY "Public access collections" ON public.collections FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public access coupons" ON public.coupons;
+CREATE POLICY "Public access coupons" ON public.coupons FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public access orders" ON public.orders;
+CREATE POLICY "Public access orders" ON public.orders FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public access newsletter" ON public.newsletter;
+CREATE POLICY "Public access newsletter" ON public.newsletter FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public access settings" ON public.settings;
+CREATE POLICY "Public access settings" ON public.settings FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public access vault" ON public.vault;
+CREATE POLICY "Public access vault" ON public.vault FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public access users" ON public.users;
+CREATE POLICY "Public access users" ON public.users FOR ALL USING (true) WITH CHECK (true);
 
 -- Automatic Profile Creation Trigger on Auth Signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()

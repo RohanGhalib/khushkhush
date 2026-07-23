@@ -1,17 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, getDocs, doc, deleteDoc, setDoc, serverTimestamp } from "firebase/firestore";
-import { db, auth } from "@/lib/firebase";
+import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
 interface Coupon {
   id: string;
   code: string;
-  discountAmount: number;
-  type: string; // 'percent' or 'fixed'
-  status: string;
+  discount_value: number;
+  discount_type: string;
+  active: boolean;
 }
 
 export default function AdminCouponsPage() {
@@ -30,24 +29,6 @@ export default function AdminCouponsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
 
-  const triggerRevalidation = async (paths: string[]) => {
-    try {
-      const idToken = await auth.currentUser?.getIdToken();
-      if (!idToken) return;
-
-      await fetch("/api/revalidate", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${idToken}`
-        },
-        body: JSON.stringify({ paths }),
-      });
-    } catch (err) {
-      console.error("Revalidation failed:", err);
-    }
-  };
-
   useEffect(() => {
     fetchCoupons();
   }, []);
@@ -55,9 +36,9 @@ export default function AdminCouponsPage() {
   const fetchCoupons = async () => {
     setLoading(true);
     try {
-      const snapshot = await getDocs(collection(db, "coupons"));
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Coupon));
-      setCoupons(data);
+      const { data, error } = await supabase.from("coupons").select("*");
+      if (error) throw error;
+      setCoupons(data || []);
     } catch (error) {
       console.error("Error fetching coupons", error);
     } finally {
@@ -70,19 +51,15 @@ export default function AdminCouponsPage() {
     if (!code || !amount) return;
     try {
       const upperCode = code.toUpperCase();
-      const docId = editingId || upperCode;
-      
-      await setDoc(doc(db, "coupons", docId), {
+      const payload = {
         code: upperCode,
-        discountAmount: Number(amount),
-        type: type,
-        status: status,
-        updatedAt: serverTimestamp(),
-        ...(editingId ? {} : { createdAt: serverTimestamp() })
-      });
-
-      // Trigger storefront cache refresh
-      await triggerRevalidation(["/", "/shop"]);
+        discount_value: Number(amount),
+        discount_type: type === "percent" ? "percentage" : "fixed",
+        active: status === "Active",
+      };
+      
+      const { error } = await supabase.from("coupons").upsert(payload, { onConflict: "code" });
+      if (error) throw error;
 
       resetForm();
       fetchCoupons();
@@ -103,19 +80,17 @@ export default function AdminCouponsPage() {
   const startEdit = (coupon: Coupon) => {
     setEditingId(coupon.id);
     setCode(coupon.code);
-    setAmount(coupon.discountAmount.toString());
-    setType(coupon.type || "fixed");
-    setStatus(coupon.status || "Active");
+    setAmount(coupon.discount_value.toString());
+    setType(coupon.discount_type === "percentage" ? "percent" : "fixed");
+    setStatus(coupon.active ? "Active" : "Disabled");
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this coupon?")) return;
     try {
-      await deleteDoc(doc(db, "coupons", id));
+      const { error } = await supabase.from("coupons").delete().eq("id", id);
+      if (error) throw error;
       setCoupons(coupons.filter(c => c.id !== id));
-
-      // Trigger storefront cache refresh
-      await triggerRevalidation(["/", "/shop"]);
     } catch (error) {
       console.error("Error deleting coupon", error);
       alert("Failed to delete coupon.");
@@ -143,7 +118,6 @@ export default function AdminCouponsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Create/Edit Form */}
         <div className="bg-void-black border-2 border-gray-800 p-6 h-fit sticky top-24">
           <h2 className="font-sans font-bold uppercase text-acid-green mb-6">
             {editingId ? "Edit Coupon" : "Create Coupon"}
@@ -184,7 +158,6 @@ export default function AdminCouponsPage() {
                 className="w-full bg-void-black border-2 border-gray-800 text-pure-white px-3 py-2 text-sm outline-none focus:border-acid-green"
               >
                 <option value="Active">Active</option>
-                <option value="Expired">Expired</option>
                 <option value="Disabled">Disabled</option>
               </select>
             </div>
@@ -199,7 +172,6 @@ export default function AdminCouponsPage() {
           </form>
         </div>
 
-        {/* List */}
         <div className="lg:col-span-2 bg-void-black border-2 border-gray-800">
           <div className="overflow-x-auto">
             <table className="w-full text-left font-sans">
@@ -221,16 +193,16 @@ export default function AdminCouponsPage() {
                     <tr key={coupon.id} className={`hover:bg-gray-800/20 transition-colors ${editingId === coupon.id ? 'bg-acid-green/5 border-l-4 border-l-acid-green' : ''}`}>
                       <td className="p-4">
                         <p className="font-mono font-bold uppercase tracking-widest">{coupon.code}</p>
-                        <p className="text-[10px] text-gray-500">{coupon.type === 'percent' ? 'Percentage Discount' : 'Fixed Amount'}</p>
+                        <p className="text-[10px] text-gray-500">{coupon.discount_type === 'percentage' ? 'Percentage Discount' : 'Fixed Amount'}</p>
                       </td>
                       <td className="p-4 text-acid-green font-bold">
-                        {coupon.type === 'percent' ? `${coupon.discountAmount}%` : `Rs. ${coupon.discountAmount.toLocaleString()}`}
+                        {coupon.discount_type === 'percentage' ? `${coupon.discount_value}%` : `Rs. ${coupon.discount_value.toLocaleString()}`}
                       </td>
                       <td className="p-4">
                         <span className={`px-2 py-0.5 text-[10px] font-bold uppercase border ${
-                          coupon.status === 'Active' ? 'text-acid-green border-acid-green' : 'text-gray-500 border-gray-500'
+                          coupon.active ? 'text-acid-green border-acid-green' : 'text-gray-500 border-gray-500'
                         }`}>
-                          {coupon.status}
+                          {coupon.active ? "Active" : "Disabled"}
                         </span>
                       </td>
                       <td className="p-4 text-right space-x-2">
@@ -248,7 +220,6 @@ export default function AdminCouponsPage() {
             </table>
           </div>
 
-          {/* Pagination Controls */}
           {totalPages > 1 && (
             <div className="p-4 border-t-2 border-gray-800 flex justify-between items-center bg-gray-900/20">
               <p className="text-xs font-bold text-gray-500 uppercase">

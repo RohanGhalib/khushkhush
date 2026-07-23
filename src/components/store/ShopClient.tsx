@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, query, where, getDocs } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { supabase } from "@/lib/supabase";
 import { ProductCard } from "@/components/store/ProductCard";
 
 export function ShopClient() {
@@ -12,9 +11,14 @@ export function ShopClient() {
   useEffect(() => {
     async function fetchProducts() {
       try {
-        const q = query(collection(db, "products"), where("status", "!=", "Draft"));
-        const snapshot = await getDocs(q);
-        setProducts(snapshot.docs.map(doc => ({ slug: doc.id, ...doc.data() })));
+        const { data, error } = await supabase
+          .from("products")
+          .select("*")
+          .neq("status", "Draft");
+
+        if (!error && data) {
+          setProducts(data);
+        }
       } catch (error) {
         console.error("Error fetching products:", error);
       } finally {

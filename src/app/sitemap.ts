@@ -1,11 +1,9 @@
 import { MetadataRoute } from 'next';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://khushkhush.com';
-  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-  const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
-  // 1. Static Routes
   const routes = [
     '',
     '/shop',
@@ -17,39 +15,25 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: route === '' ? 1 : 0.8,
   }));
 
-  // Helper to safely fetch from Firestore REST
-  async function fetchFromFirestore(collection: string): Promise<{ slug: string; updatedAt: string }[]> {
-    if (!projectId || !apiKey) return [];
-    try {
-      const res = await fetch(
-        `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collection}?key=${apiKey}&pageSize=200`,
-        { next: { revalidate: 3600 } }
-      );
-      if (!res.ok) return [];
-      const data = await res.json();
-      return (data.documents ?? []).map((doc: { name: string; updateTime?: string }) => ({
-        slug: doc.name.split("/").pop() as string,
-        updatedAt: doc.updateTime || new Date().toISOString()
-      }));
-    } catch {
-      return [];
-    }
-  }
+  const { data: products } = await supabaseAdmin
+    .from('products')
+    .select('slug, updated_at')
+    .neq('status', 'Draft');
 
-  // 2. Dynamic Product Routes
-  const products = await fetchFromFirestore('products');
-  const productRoutes = products.map((product) => ({
+  const productRoutes = (products || []).map((product) => ({
     url: `${baseUrl}/product/${product.slug}`,
-    lastModified: product.updatedAt,
+    lastModified: product.updated_at || new Date().toISOString(),
     changeFrequency: 'daily' as const,
     priority: 0.7,
   }));
 
-  // 3. Dynamic Collection Routes
-  const collections = await fetchFromFirestore('collections');
-  const collectionRoutes = collections.map((collection) => ({
-    url: `${baseUrl}/collections/${collection.slug}`,
-    lastModified: collection.updatedAt,
+  const { data: collections } = await supabaseAdmin
+    .from('collections')
+    .select('slug, created_at');
+
+  const collectionRoutes = (collections || []).map((col) => ({
+    url: `${baseUrl}/collections/${col.slug}`,
+    lastModified: col.created_at || new Date().toISOString(),
     changeFrequency: 'weekly' as const,
     priority: 0.6,
   }));

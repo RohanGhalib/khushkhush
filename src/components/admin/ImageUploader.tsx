@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import Image from "next/image";
 import { Upload, X, Loader2 } from "lucide-react";
-import { auth } from "@/lib/firebase";
+import { supabase } from "@/lib/supabase";
 
 interface ImageUploaderProps {
   images: string[];
@@ -24,11 +24,10 @@ export function ImageUploader({ images, onChange, multiple = true }: ImageUpload
 
     try {
       for (const file of files) {
-        // Get Firebase token for auth
-        const idToken = await auth.currentUser?.getIdToken();
+        const { data } = await supabase.auth.getSession();
+        const idToken = data.session?.access_token;
         if (!idToken) throw new Error("Not authenticated");
 
-        // Get presigned URL
         const res = await fetch("/api/r2/presign", {
           method: "POST",
           headers: { 
@@ -42,7 +41,6 @@ export function ImageUploader({ images, onChange, multiple = true }: ImageUpload
         
         const { signedUrl, publicUrl } = await res.json();
 
-        // Upload directly to R2
         await fetch(signedUrl, {
           method: "PUT",
           headers: { "Content-Type": file.type },

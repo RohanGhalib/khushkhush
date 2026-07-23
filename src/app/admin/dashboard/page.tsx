@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, getDocs, query, orderBy, limit, getCountFromServer } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { supabase } from "@/lib/supabase";
 import { DollarSign, ShoppingBag, Users, AlertTriangle } from "lucide-react";
 
 export default function AdminDashboard() {
@@ -21,45 +20,33 @@ export default function AdminDashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      // --- Orders ---
-      // Fetch the most recent 200 orders for revenue calculation + display.
-      // NOTE: At true scale (10k+ orders), replace this with a denormalized
-      // `stats` document maintained by a Firestore trigger or Cloud Function.
-      const ordersQuery = query(
-        collection(db, "orders"),
-        orderBy("createdAt", "desc"),
-        limit(200)
-      );
-      const ordersSnap = await getDocs(ordersQuery);
+      const { data: ordersData } = await supabase
+        .from("orders")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(200);
+
       let revenue = 0;
       let orderCount = 0;
-      const recent: any[] = [];
+      const recent: any[] = ordersData?.slice(0, 5) || [];
 
-      ordersSnap.forEach((doc) => {
-        const data = doc.data();
-        revenue += data.total || 0;
+      (ordersData || []).forEach((order) => {
+        revenue += Number(order.total) || 0;
         orderCount++;
-        if (recent.length < 5) {
-          recent.push({ id: doc.id, ...data });
-        }
       });
 
-      // --- User Count ---
-      // getCountFromServer reads zero documents — it uses Firestore's aggregation
-      // query which is billed as a single read regardless of collection size.
-      const usersCountSnap = await getCountFromServer(collection(db, "users"));
-      const userCount = usersCountSnap.data().count;
+      const { count: userCount } = await supabase
+        .from("users")
+        .select("*", { count: "exact", head: true });
 
-      // --- Low Stock Products ---
-      // Fetch up to 100 products to check stock levels.
-      const productsQuery = query(collection(db, "products"), limit(100));
-      const productsSnap = await getDocs(productsQuery);
+      const { data: productsData } = await supabase
+        .from("products")
+        .select("*");
+
       let lowStockCount = 0;
-      productsSnap.forEach((doc) => {
-        const data = doc.data();
-        const sizes = data.sizes || {};
-        const totalStock = Object.values(sizes).reduce((a: any, b: any) => a + b, 0) as number;
-        if (totalStock < 10) {
+      (productsData || []).forEach((p) => {
+        const stock = Number(p.stock) || 0;
+        if (stock < 10) {
           lowStockCount++;
         }
       });
@@ -67,7 +54,7 @@ export default function AdminDashboard() {
       setStats({
         revenue,
         orders: orderCount,
-        users: userCount,
+        users: userCount || 0,
         lowStock: lowStockCount
       });
       setRecentOrders(recent);
@@ -96,7 +83,6 @@ export default function AdminDashboard() {
         </div>
       ) : (
         <>
-          {/* Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
             {statCards.map((stat, i) => {
               const Icon = stat.icon;
@@ -115,7 +101,6 @@ export default function AdminDashboard() {
             })}
           </div>
 
-          {/* Recent Orders */}
           <div className="bg-void-black border-2 border-gray-800 p-6">
             <h2 className="font-twenly text-2xl text-pure-white mb-6">RECENT ORDERS</h2>
             
@@ -135,17 +120,17 @@ export default function AdminDashboard() {
                   ) : (
                     recentOrders.map(order => (
                       <tr key={order.id} className="border-b border-gray-800/50 hover:bg-gray-800/20 transition-colors">
-                        <td className="py-4 pr-4 font-mono text-gray-300">#{order.id.substring(0,8)}</td>
-                        <td className="py-4 px-4 font-bold">{order.customerInfo?.fullName || "Guest"}</td>
+                        <td className="py-4 pr-4 font-mono text-gray-300">#{order.order_number || order.id.substring(0,8)}</td>
+                        <td className="py-4 px-4 font-bold">{order.customer_name || "Guest"}</td>
                         <td className="py-4 px-4 text-acid-green font-bold">Rs. {order.total?.toLocaleString() || 0}</td>
                         <td className="py-4 px-4">
                           <span className={`px-2 py-1 text-xs font-bold uppercase border ${
-                            order.status === 'Pending' ? 'text-yellow-500 border-yellow-500 bg-yellow-500/10' :
-                            order.status === 'Shipped' ? 'text-blue-500 border-blue-500 bg-blue-500/10' :
-                            order.status === 'Delivered' ? 'text-acid-green border-acid-green bg-acid-green/10' :
+                            order.order_status === 'Pending' ? 'text-yellow-500 border-yellow-500 bg-yellow-500/10' :
+                            order.order_status === 'Shipped' ? 'text-blue-500 border-blue-500 bg-blue-500/10' :
+                            order.order_status === 'Delivered' ? 'text-acid-green border-acid-green bg-acid-green/10' :
                             'text-red-500 border-red-500 bg-red-500/10'
                           }`}>
-                            {order.status}
+                            {order.order_status || order.status || 'Processing'}
                           </span>
                         </td>
                       </tr>

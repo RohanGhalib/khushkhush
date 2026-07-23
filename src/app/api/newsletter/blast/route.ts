@@ -1,30 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-/**
- * Securely verify if the request comes from an authenticated Admin.
- */
 async function verifyAdmin(req: NextRequest) {
   try {
     const authHeader = req.headers.get("Authorization") ?? "";
-    const idToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
-    if (!idToken) return false;
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (!token) return false;
 
-    const res = await fetch(
-      `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${process.env.NEXT_PUBLIC_FIREBASE_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken }),
-      }
-    );
-    if (!res.ok) return false;
+    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+    if (error || !user) return false;
 
-    const parts = idToken.split(".");
-    const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf-8"));
-    return payload?.admin === true;
+    const { data: profile } = await supabaseAdmin
+      .from("users")
+      .select("is_admin, role")
+      .eq("id", user.id)
+      .single();
+
+    return profile?.is_admin === true || profile?.role === "admin";
   } catch {
     return false;
   }
@@ -37,32 +32,26 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { subject, content, templateType } = await req.json();
+    const { subject, content } = await req.json();
 
     if (!subject || !content) {
       return NextResponse.json({ error: "Missing subject or content" }, { status: 400 });
     }
 
-    // 1. Fetch all subscribers from Firestore REST API
-    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-    const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-    
-    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/newsletter?key=${apiKey}&pageSize=1000`;
-    const firestoreRes = await fetch(url);
-    
-    if (!firestoreRes.ok) {
-      throw new Error("Failed to fetch subscribers");
+    const { data: subsData, error: dbError } = await supabaseAdmin
+      .from("newsletter")
+      .select("email");
+
+    if (dbError) {
+      throw new Error("Failed to fetch subscribers from Supabase");
     }
 
-    const data = await firestoreRes.json();
-    const subscribers = (data.documents || []).map((doc: any) => doc.fields.email.stringValue);
+    const subscribers = (subsData || []).map((sub: any) => sub.email);
 
     if (subscribers.length === 0) {
       return NextResponse.json({ success: true, count: 0, message: "No subscribers to blast" });
     }
 
-    // 2. Prepare Batch Send via Resend
-    // Resend batch limit is 100 emails per request. We need to chunk if larger.
     const batchSize = 100;
     const results = [];
 
@@ -73,7 +62,7 @@ export async function POST(req: NextRequest) {
         from: "KhUShKhUSh <newsletter@khushkhush.com>",
         to: email,
         subject: subject,
-        html: content, // The editor provides HTML
+        html: content,
       }));
 
       const { data: resendData, error } = await resend.batch.send(batchData);

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { adminAuth } from "@/lib/firebaseAdmin";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
 
@@ -12,9 +12,18 @@ async function requireAdmin(req: Request) {
   if (!authHeader?.startsWith("Bearer ")) {
     return { ok: false as const, status: 401, error: "Unauthorized" };
   }
+  const token = authHeader.slice(7);
   try {
-    const decoded = await adminAuth.verifyIdToken(authHeader.slice(7));
-    if (decoded.admin !== true) {
+    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+    if (error || !user) return { ok: false as const, status: 401, error: "Invalid token" };
+
+    const { data: profile } = await supabaseAdmin
+      .from("users")
+      .select("is_admin, role")
+      .eq("id", user.id)
+      .single();
+
+    if (profile?.is_admin !== true && profile?.role !== "admin") {
       return { ok: false as const, status: 403, error: "Admins only" };
     }
     return { ok: true as const };
@@ -71,7 +80,6 @@ export async function GET(req: Request) {
       topWishlisted,
       funnel,
     ] = await Promise.all([
-      // Summary: total pageviews, unique visitors, sessions
       hogql(`
         SELECT
           count() AS pageviews,
@@ -80,7 +88,6 @@ export async function GET(req: Request) {
         FROM events
         WHERE event = '$pageview' AND ${range}
       `),
-      // Visits over time (daily)
       hogql(`
         SELECT toDate(timestamp) AS day, count() AS visits
         FROM events
@@ -88,7 +95,6 @@ export async function GET(req: Request) {
         GROUP BY day
         ORDER BY day ASC
       `),
-      // Top pages
       hogql(`
         SELECT properties.$pathname AS path, count() AS views
         FROM events
@@ -97,7 +103,6 @@ export async function GET(req: Request) {
         ORDER BY views DESC
         LIMIT 15
       `),
-      // Top countries
       hogql(`
         SELECT properties.$geoip_country_name AS country, count() AS visits
         FROM events
@@ -106,7 +111,6 @@ export async function GET(req: Request) {
         ORDER BY visits DESC
         LIMIT 15
       `),
-      // Top referrers
       hogql(`
         SELECT properties.$referring_domain AS source, count() AS visits
         FROM events
@@ -115,7 +119,6 @@ export async function GET(req: Request) {
         ORDER BY visits DESC
         LIMIT 10
       `),
-      // Devices
       hogql(`
         SELECT properties.$device_type AS device, count() AS visits
         FROM events
@@ -123,7 +126,6 @@ export async function GET(req: Request) {
         GROUP BY device
         ORDER BY visits DESC
       `),
-      // Browsers
       hogql(`
         SELECT properties.$browser AS browser, count() AS visits
         FROM events
@@ -132,7 +134,6 @@ export async function GET(req: Request) {
         ORDER BY visits DESC
         LIMIT 8
       `),
-      // Hourly heatmap (day-of-week x hour)
       hogql(`
         SELECT
           toDayOfWeek(timestamp) AS dow,
@@ -143,7 +144,6 @@ export async function GET(req: Request) {
         GROUP BY dow, hour
         ORDER BY dow ASC, hour ASC
       `),
-      // Top products viewed
       hogql(`
         SELECT
           properties.product_slug AS slug,
@@ -155,7 +155,6 @@ export async function GET(req: Request) {
         ORDER BY views DESC
         LIMIT 10
       `),
-      // Top wishlisted products
       hogql(`
         SELECT
           properties.product_slug AS slug,
@@ -167,7 +166,6 @@ export async function GET(req: Request) {
         ORDER BY adds DESC
         LIMIT 10
       `),
-      // Funnel: views → cart → checkout → purchase
       hogql(`
         SELECT
           countIf(event = 'product_view') AS views,

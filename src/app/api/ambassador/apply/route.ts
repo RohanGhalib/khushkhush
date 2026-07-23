@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { Timestamp } from "firebase-admin/firestore";
-import { adminDb } from "@/lib/firebaseAdmin";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { rateLimit } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
@@ -29,29 +28,30 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Form ka homework complete karo." }, { status: 400 });
     }
 
-    const existingSnap = await adminDb.collection("users").where("email", "==", email).limit(1).get();
-    const userRef = existingSnap.empty ? adminDb.collection("users").doc() : existingSnap.docs[0].ref;
+    const { data: existingUser } = await supabaseAdmin
+      .from("users")
+      .select("id")
+      .eq("email", email)
+      .single();
 
-    await userRef.set(
-      {
+    if (existingUser?.id) {
+      await supabaseAdmin.from("users").update({
         name,
-        email,
-        instagramHandle,
+        instagram_handle: instagramHandle,
         college,
-        ambassadorPitch,
-        role: "user",
-        ambassadorStatus: "pending",
-        khushCoins: 0,
-        khushCoinsEarned: 0,
-        khushCoinsSpent: 0,
-        ambassadorSales: 0,
-        ambassadorReferralUses: 0,
-        applicationSource: "khusbassador-form",
-        updatedAt: Timestamp.now(),
-        ...(existingSnap.empty ? { createdAt: Timestamp.now(), wishlist: [] } : {}),
-      },
-      { merge: true }
-    );
+        ambassador_pitch: ambassadorPitch,
+        ambassador_status: "pending",
+      }).eq("id", existingUser.id);
+    } else {
+      await supabaseAdmin.from("users").insert({
+        email,
+        name,
+        instagram_handle: instagramHandle,
+        college,
+        ambassador_pitch: ambassadorPitch,
+        ambassador_status: "pending",
+      });
+    }
 
     const origin = req.headers.get("origin") || new URL(req.url).origin;
     fetch(`${origin}/api/emails/ambassador`, {

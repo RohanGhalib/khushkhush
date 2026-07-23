@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { supabase } from "@/lib/supabase";
 import { ProductView } from "@/components/store/ProductView";
 
 export function ProductClient({ slug }: { slug: string }) {
@@ -12,10 +11,14 @@ export function ProductClient({ slug }: { slug: string }) {
   useEffect(() => {
     async function fetchProduct() {
       try {
-        const docRef = doc(db, "products", slug);
-        const snapshot = await getDoc(docRef);
-        if (snapshot.exists()) {
-          setProduct({ slug: snapshot.id, ...snapshot.data() });
+        const { data, error } = await supabase
+          .from("products")
+          .select("*")
+          .eq("slug", slug)
+          .single();
+
+        if (!error && data) {
+          setProduct(data);
         }
       } catch (error) {
         console.error("Error fetching product:", error);

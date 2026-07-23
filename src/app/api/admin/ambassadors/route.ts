@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { adminAuth, adminDb } from "@/lib/firebaseAdmin";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
 
@@ -8,13 +8,21 @@ async function requireAdmin(req: Request) {
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return { ok: false as const, status: 401, error: "Unauthorized" };
   }
-  const idToken = authHeader.split(" ")[1];
+  const token = authHeader.split(" ")[1];
   try {
-    const decoded = await adminAuth.verifyIdToken(idToken);
-    if (decoded.admin !== true) {
+    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+    if (error || !user) return { ok: false as const, status: 401, error: "Invalid token" };
+
+    const { data: profile } = await supabaseAdmin
+      .from("users")
+      .select("is_admin, role")
+      .eq("id", user.id)
+      .single();
+
+    if (profile?.is_admin !== true && profile?.role !== "admin") {
       return { ok: false as const, status: 403, error: "Admins only" };
     }
-    return { ok: true as const, uid: decoded.uid };
+    return { ok: true as const, uid: user.id };
   } catch (error) {
     console.error("Admin token verify failed", error);
     return { ok: false as const, status: 401, error: "Invalid token" };
@@ -28,18 +36,12 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
-    const [usersSnap, referralsSnap] = await Promise.all([
-      adminDb
-        .collection("users")
-        .where("ambassadorStatus", "in", ["pending", "active", "rejected"])
-        .get(),
-      adminDb.collection("referrals").get(),
+    const [usersRes, referralsRes] = await Promise.all([
+      supabaseAdmin.from("users").select("*"),
+      supabaseAdmin.from("referral_ledger").select("*")
     ]);
 
-    const users = usersSnap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-    const referrals = referralsSnap.docs.map((doc) => doc.data());
-
-    return NextResponse.json({ users, referrals });
+    return NextResponse.json({ users: usersRes.data || [], referrals: referralsRes.data || [] });
   } catch (error: unknown) {
     console.error("Admin ambassadors fetch error:", error);
     return NextResponse.json(
@@ -65,26 +67,24 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing userId or status" }, { status: 400 });
     }
 
-    const userRef = adminDb.collection("users").doc(userId);
-    const userSnap = await userRef.get();
-    if (!userSnap.exists) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
-    const userData = userSnap.data() || {};
-
     const payload =
       status === "active"
         ? {
-            ambassadorStatus: "active",
+            ambassador_status: "active",
             role: "ambassador",
-            referralCode: referralCode || userData.referralCode || "",
+            referral_code: referralCode,
           }
         : {
-            ambassadorStatus: "rejected",
-            role: userData.role === "ambassador" ? "user" : userData.role || "user",
+            ambassador_status: "rejected",
+            role: "user",
           };
 
-    await userRef.set(payload, { merge: true });
+    const { error } = await supabaseAdmin
+      .from("users")
+      .update(payload)
+      .eq("id", userId);
+
+    if (error) throw error;
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {

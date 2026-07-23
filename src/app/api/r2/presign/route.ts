@@ -2,9 +2,8 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { NextResponse } from "next/server";
 import { rateLimit } from "@/lib/rateLimit";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-// Module-level singleton — reuses TCP connections across requests instead
-// of paying the connection setup cost on every presign call.
 const S3 = new S3Client({
   region: "auto",
   endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
@@ -14,51 +13,18 @@ const S3 = new S3Client({
   },
 });
 
-/**
- * Verifies a Firebase ID token using the Firebase Auth REST API.
- * Returns the decoded token payload, or null if invalid.
- */
-async function verifyFirebaseToken(idToken: string) {
+async function verifySupabaseAdminToken(accessToken: string): Promise<boolean> {
   try {
-    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-    const res = await fetch(
-      `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${process.env.NEXT_PUBLIC_FIREBASE_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken }),
-      }
-    );
-    if (!res.ok) return null;
-    const data = await res.json();
-    const user = data.users?.[0];
-    if (!user) return null;
-    // Also verify the token belongs to our project by checking the localId exists
-    return user;
-  } catch {
-    return null;
-  }
-}
+    const { data: { user }, error } = await supabaseAdmin.auth.getUser(accessToken);
+    if (error || !user) return false;
 
-/**
- * Verifies a Firebase ID token's custom claims to check admin status.
- * Uses the token's own payload — Firebase JWTs are signed RS256, so we
- * verify via the REST accounts:lookup endpoint (no Admin SDK required).
- */
-async function isAdminToken(idToken: string): Promise<boolean> {
-  // Decode the JWT payload (middle segment) to read custom claims.
-  // Note: We still verify the token is valid via the accounts:lookup call.
-  try {
-    const parts = idToken.split(".");
-    if (parts.length !== 3) return false;
-    const payload = JSON.parse(
-      Buffer.from(parts[1], "base64url").toString("utf-8")
-    );
-    // Verify token is valid (not expired / tampered)
-    const user = await verifyFirebaseToken(idToken);
-    if (!user) return false;
-    // Check admin custom claim
-    return payload?.admin === true;
+    const { data: profile } = await supabaseAdmin
+      .from("users")
+      .select("is_admin, role")
+      .eq("id", user.id)
+      .single();
+
+    return profile?.is_admin === true || profile?.role === "admin";
   } catch {
     return false;
   }
@@ -66,7 +32,6 @@ async function isAdminToken(idToken: string): Promise<boolean> {
 
 export async function POST(req: Request) {
   try {
-    // Rate Limiting: 50 requests per hour per IP (for admin uploads)
     const ip = req.headers.get("x-forwarded-for") || "anonymous";
     const { success } = await rateLimit(`r2-${ip}`, 50, 3600000);
     
@@ -74,7 +39,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Too many upload requests. Try again later." }, { status: 429 });
     }
 
-    // --- Auth Check ---
     const authHeader = req.headers.get("Authorization") ?? "";
     const idToken = authHeader.startsWith("Bearer ")
       ? authHeader.slice(7)
@@ -87,7 +51,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const adminOk = await isAdminToken(idToken);
+    const adminOk = await verifySupabaseAdminToken(idToken);
     if (!adminOk) {
       return NextResponse.json(
         { error: "Forbidden — admin access required" },
@@ -95,7 +59,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // --- Input Validation ---
     const body = await req.json();
     const { filename, contentType } = body;
 
@@ -106,7 +69,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // --- Generate Presigned URL ---
     const key = `${Date.now()}-${filename.replace(/\s+/g, "-")}`;
 
     const command = new PutObjectCommand({

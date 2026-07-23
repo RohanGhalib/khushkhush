@@ -1,31 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-/**
- * Securely verify if the request comes from an authenticated Admin.
- * This reuse the logic from our other secure API routes.
- */
 async function verifyAdmin(req: NextRequest) {
   try {
     const authHeader = req.headers.get("Authorization") ?? "";
-    const idToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
-    if (!idToken) return false;
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (!token) return false;
 
-    // Verify token validity via Firebase Auth REST
-    const res = await fetch(
-      `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${process.env.NEXT_PUBLIC_FIREBASE_API_KEY}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken }),
-      }
-    );
-    if (!res.ok) return false;
+    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+    if (error || !user) return false;
 
-    // Check custom claims for admin: true
-    const parts = idToken.split(".");
-    const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf-8"));
-    return payload?.admin === true;
+    const { data: profile } = await supabaseAdmin
+      .from("users")
+      .select("is_admin, role")
+      .eq("id", user.id)
+      .single();
+
+    return profile?.is_admin === true || profile?.role === "admin";
   } catch {
     return false;
   }
@@ -45,7 +37,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid paths array" }, { status: 400 });
     }
 
-    // Trigger on-demand revalidation for each path
     for (const path of paths) {
       revalidatePath(path);
     }

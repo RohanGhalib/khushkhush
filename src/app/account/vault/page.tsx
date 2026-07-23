@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { collection, doc, getDoc, getDocs, query, where, orderBy, limit } from "firebase/firestore";
 import { Copy, LockKeyhole } from "lucide-react";
-import { db } from "@/lib/firebase";
+import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/lib/authStore";
 import {
   KHUSBASSADOR_CONFIG,
@@ -17,11 +16,10 @@ type Vault = { balance?: number; goal?: number };
 type Referral = { coinsEarnedByAmbassador?: number; shirtCount?: number };
 type LedgerEntry = {
   id: string;
-  kind: "earn" | "redeem" | "adjust";
+  kind: string;
   amount: number;
   note?: string;
-  orderId?: string;
-  createdAt?: { toDate?: () => Date } | null;
+  created_at?: string;
 };
 
 function tierForSales(sales: number, config: KhusbassadorConfig) {
@@ -49,44 +47,37 @@ export default function CollegeVaultPage() {
         const liveConfig = await fetchKhusbassadorConfig();
         setConfig(liveConfig);
 
-        const [profileResult, vaultResult, referralsResult, ledgerResult] = await Promise.allSettled([
-          getDoc(doc(db, "users", user!.uid)),
-          getDoc(doc(db, "vault", liveConfig.vaultDocumentId)),
-          getDocs(query(collection(db, "referrals"), where("ambassadorId", "==", user!.uid))),
-          getDocs(
-            query(
-              collection(db, "coinLedger"),
-              where("userId", "==", user!.uid),
-              orderBy("createdAt", "desc"),
-              limit(15)
-            )
-          ),
+        const [profileRes, vaultRes, ledgerRes] = await Promise.all([
+          supabase.from("users").select("*").eq("id", user!.id).single(),
+          supabase.from("vault").select("*").eq("id", liveConfig.vaultDocumentId).single(),
+          supabase.from("coin_ledger").select("*").eq("user_id", user!.id).order("created_at", { ascending: false }).limit(15)
         ]);
 
-        if (profileResult.status === "fulfilled" && profileResult.value.exists()) {
-          setProfile({ id: profileResult.value.id, ...profileResult.value.data() } as KhushUser);
-        } else if (profileResult.status === "rejected") {
-          console.error("Vault: profile read failed", profileResult.reason);
+        if (profileRes.data) {
+          setProfile({
+            id: profileRes.data.id,
+            email: profileRes.data.email,
+            name: profileRes.data.name,
+            phone: profileRes.data.phone,
+            role: profileRes.data.role,
+            is_admin: profileRes.data.is_admin,
+            college: profileRes.data.college,
+            referralCode: profileRes.data.referral_code,
+            ambassadorStatus: profileRes.data.ambassador_status,
+            khushCoins: profileRes.data.khush_coins,
+            khushCoinsEarned: profileRes.data.khush_coins_earned,
+            khushCoinsSpent: profileRes.data.khush_coins_spent,
+            ambassadorSales: profileRes.data.ambassador_sales,
+            ambassadorReferralUses: profileRes.data.ambassador_referral_uses,
+          } as KhushUser);
         }
 
-        if (vaultResult.status === "fulfilled" && vaultResult.value.exists()) {
-          setVault(vaultResult.value.data() as Vault);
-        } else if (vaultResult.status === "rejected") {
-          console.error("Vault: fund read failed", vaultResult.reason);
+        if (vaultRes.data) {
+          setVault(vaultRes.data);
         }
 
-        if (referralsResult.status === "fulfilled") {
-          setReferrals(referralsResult.value.docs.map((entry) => entry.data() as Referral));
-        } else {
-          console.error("Vault: referrals read failed", referralsResult.reason);
-        }
-
-        if (ledgerResult.status === "fulfilled") {
-          setLedger(
-            ledgerResult.value.docs.map((entry) => ({ id: entry.id, ...entry.data() } as LedgerEntry))
-          );
-        } else {
-          console.error("Vault: ledger read failed", ledgerResult.reason);
+        if (ledgerRes.data) {
+          setLedger(ledgerRes.data as LedgerEntry[]);
         }
       } finally {
         setLoading(false);
@@ -97,15 +88,11 @@ export default function CollegeVaultPage() {
   }, [user]);
 
   const stats = useMemo(() => {
-    const totalUses = referrals.length || profile?.ambassadorReferralUses || 0;
-    const totalCoinsEarned =
-      referrals.reduce((sum, referral) => sum + (referral.coinsEarnedByAmbassador || 0), 0) ||
-      profile?.khushCoinsEarned ||
-      0;
-    const totalSales =
-      referrals.reduce((sum, referral) => sum + (referral.shirtCount || 0), 0) || profile?.ambassadorSales || 0;
+    const totalUses = profile?.ambassadorReferralUses || 0;
+    const totalCoinsEarned = profile?.khushCoinsEarned || 0;
+    const totalSales = profile?.ambassadorSales || 0;
     return { totalUses, totalCoinsEarned, totalSales };
-  }, [profile, referrals]);
+  }, [profile]);
 
   const balance = vault.balance || 0;
   const goal = vault.goal || config.vaultGoal;
@@ -211,34 +198,6 @@ export default function CollegeVaultPage() {
       </section>
 
       <section className="border-2 border-gray-800 bg-void-black p-5">
-        <h3 className="font-urdu text-4xl leading-relaxed text-acid-green">درجے</h3>
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
-          {[
-            { name: "Scout", threshold: 0 },
-            { name: "Icon", threshold: config.iconTierSales },
-            { name: "BVIBE Legend", threshold: config.legendTierSales },
-          ].map(({ name, threshold }) => (
-            <div
-              key={name}
-              className={`border-2 p-4 ${
-                tier.name === name ? "border-acid-green bg-acid-green text-void-black" : "border-gray-800 text-pure-white"
-              }`}
-            >
-              <p className="font-twenly text-3xl uppercase">{name}</p>
-              <p className="font-sans text-[10px] font-black uppercase tracking-widest opacity-70">
-                {threshold}+ sales
-              </p>
-            </div>
-          ))}
-        </div>
-        {tier.next && (
-          <p className="mt-4 font-sans text-xs font-black uppercase tracking-widest text-gray-500">
-            Next tier needs {tier.next - stats.totalSales} more shirts.
-          </p>
-        )}
-      </section>
-
-      <section className="border-2 border-gray-800 bg-void-black p-5">
         <h3 className="font-twenly text-3xl uppercase text-pure-white">COIN LEDGER</h3>
         <p className="mb-4 font-sans text-[11px] font-bold uppercase tracking-widest text-gray-500">
           Last 15 entries. The receipts don&apos;t lie.
@@ -256,7 +215,7 @@ export default function CollegeVaultPage() {
                       {entry.kind}
                     </p>
                     <p className="font-sans text-[11px] uppercase text-gray-500">
-                      {entry.note || (entry.orderId ? `Order ${entry.orderId.slice(0, 8)}` : "—")}
+                      {entry.note || "—"}
                     </p>
                   </div>
                   <p

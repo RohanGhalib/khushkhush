@@ -1,17 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, query, orderBy, getDocs, doc, updateDoc, limit } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/Button";
 
 interface Order {
   id: string;
-  customerInfo: { fullName: string; email: string; phone: string; address: string; city: string };
+  order_number?: string;
+  customer_name?: string;
+  customer_email?: string;
+  customer_phone?: string;
+  shipping_address?: any;
+  items?: any[];
   total: number;
-  status: string;
-  createdAt: any;
-  items: any[];
+  order_status?: string;
+  created_at?: string;
 }
 
 export default function AdminOrdersPage() {
@@ -29,10 +32,14 @@ export default function AdminOrdersPage() {
   const fetchOrders = async () => {
     setLoading(true);
     try {
-      const q = query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(300));
-      const snapshot = await getDocs(q);
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
-      setOrders(data);
+      const { data, error } = await supabase
+        .from("orders")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(300);
+
+      if (error) throw error;
+      setOrders(data || []);
     } catch (error) {
       console.error("Error fetching orders", error);
     } finally {
@@ -42,18 +49,23 @@ export default function AdminOrdersPage() {
 
   const filteredOrders = orders
     .filter(order => {
+      const name = order.customer_name || "";
+      const email = order.customer_email || "";
+      const orderNum = order.order_number || order.id || "";
+
       const matchesSearch = 
-        order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        order.customerInfo.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        order.customerInfo.email.toLowerCase().includes(searchQuery.toLowerCase());
+        orderNum.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        email.toLowerCase().includes(searchQuery.toLowerCase());
       
-      const matchesStatus = statusFilter === "all" || order.status === statusFilter;
+      const status = order.order_status || "Processing";
+      const matchesStatus = statusFilter === "all" || status === statusFilter;
       
       return matchesSearch && matchesStatus;
     })
     .sort((a, b) => {
-      if (sortBy === "newest") return b.createdAt?.seconds - a.createdAt?.seconds;
-      if (sortBy === "oldest") return a.createdAt?.seconds - b.createdAt?.seconds;
+      if (sortBy === "newest") return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+      if (sortBy === "oldest") return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
       if (sortBy === "total-high") return b.total - a.total;
       if (sortBy === "total-low") return a.total - b.total;
       return 0;
@@ -74,24 +86,18 @@ export default function AdminOrdersPage() {
       const order = orders.find(o => o.id === orderId);
       if (!order) return;
 
-      showNotification(`Updating order #${orderId.substring(0, 8)}...`, "success");
+      showNotification(`Updating order...`, "success");
       
-      await updateDoc(doc(db, "orders", orderId), { status: newStatus });
-      setOrders(orders.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+      const { error } = await supabase
+        .from("orders")
+        .update({ order_status: newStatus })
+        .eq("id", orderId);
 
-      // Trigger Status Update Email
-      fetch("/api/emails/order-status", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          orderId: order.id,
-          customerEmail: order.customerInfo.email,
-          customerName: order.customerInfo.fullName,
-          status: newStatus,
-        }),
-      }).catch(console.error);
+      if (error) throw error;
 
-      showNotification(`Order #${orderId.substring(0, 8)} updated to ${newStatus}`);
+      setOrders(orders.map(o => o.id === orderId ? { ...o, order_status: newStatus } : o));
+
+      showNotification(`Order status updated to ${newStatus}`);
     } catch (error) {
       console.error("Error updating status", error);
       showNotification("Failed to update status", "error");
@@ -110,7 +116,6 @@ export default function AdminOrdersPage() {
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
-      {/* Notification Toast */}
       {notification && (
         <div className={`fixed top-24 right-8 z-[200] p-4 border-2 shadow-[4px_4px_0px_rgba(0,0,0,1)] flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-300 ${
           notification.type === 'success' ? 'bg-acid-green border-void-black text-void-black' : 'bg-red-600 border-pure-white text-pure-white'
@@ -174,54 +179,56 @@ export default function AdminOrdersPage() {
               ) : paginatedOrders.length === 0 ? (
                 <tr><td colSpan={6} className="p-8 text-center text-gray-500">No orders match your search.</td></tr>
               ) : (
-                paginatedOrders.map((order) => (
-                  <tr key={order.id} className="hover:bg-gray-800/20 transition-colors">
-                    <td className="p-4 font-mono text-gray-300">#{order.id.substring(0,8)}</td>
-                    <td className="p-4">
-                      <p className="font-bold">{order.customerInfo.fullName}</p>
-                      <p className="text-xs text-gray-400">{order.customerInfo.city} - {order.customerInfo.phone}</p>
-                    </td>
-                    <td className="p-4">
-                      {order.items.length} items
-                    </td>
-                    <td className="p-4 font-bold text-acid-green">Rs. {order.total.toLocaleString()}</td>
-                    <td className="p-4">
-                      <select 
-                        value={order.status}
-                        onChange={(e) => updateStatus(order.id, e.target.value)}
-                        className={`bg-void-black border px-2 py-1 text-xs font-bold uppercase ${
-                          order.status === 'Pending' ? 'text-yellow-500 border-yellow-500' :
-                          order.status === 'Shipped' ? 'text-blue-500 border-blue-500' :
-                          order.status === 'Delivered' ? 'text-acid-green border-acid-green' :
-                          'text-red-500 border-red-500'
-                        }`}
-                      >
-                        <option value="Pending" className="text-pure-white">Pending</option>
-                        <option value="Shipped" className="text-pure-white">Shipped</option>
-                        <option value="Delivered" className="text-pure-white">Delivered</option>
-                        <option value="Cancelled" className="text-pure-white">Cancelled</option>
-                      </select>
-                    </td>
-                    <td className="p-4 text-right">
-                      <Button 
-                        variant="outline" 
-                        onClick={() => {
-                        setSelectedOrder(order);
-                        setModalStatus(order.status);
-                      }}
-                        className="text-xs py-1 h-auto px-2 border-gray-600 text-gray-400 hover:text-pure-white"
-                      >
-                        VIEW
-                      </Button>
-                    </td>
-                  </tr>
-                ))
+                paginatedOrders.map((order) => {
+                  const status = order.order_status || "Processing";
+                  return (
+                    <tr key={order.id} className="hover:bg-gray-800/20 transition-colors">
+                      <td className="p-4 font-mono text-gray-300">#{order.order_number || order.id.substring(0,8)}</td>
+                      <td className="p-4">
+                        <p className="font-bold">{order.customer_name || "Guest"}</p>
+                        <p className="text-xs text-gray-400">{order.customer_phone}</p>
+                      </td>
+                      <td className="p-4">
+                        {(order.items || []).length} items
+                      </td>
+                      <td className="p-4 font-bold text-acid-green">Rs. {order.total?.toLocaleString() || 0}</td>
+                      <td className="p-4">
+                        <select 
+                          value={status}
+                          onChange={(e) => updateStatus(order.id, e.target.value)}
+                          className={`bg-void-black border px-2 py-1 text-xs font-bold uppercase ${
+                            status === 'Pending' ? 'text-yellow-500 border-yellow-500' :
+                            status === 'Shipped' ? 'text-blue-500 border-blue-500' :
+                            status === 'Delivered' ? 'text-acid-green border-acid-green' :
+                            'text-red-500 border-red-500'
+                          }`}
+                        >
+                          <option value="Pending" className="text-pure-white">Pending</option>
+                          <option value="Shipped" className="text-pure-white">Shipped</option>
+                          <option value="Delivered" className="text-pure-white">Delivered</option>
+                          <option value="Cancelled" className="text-pure-white">Cancelled</option>
+                        </select>
+                      </td>
+                      <td className="p-4 text-right">
+                        <Button 
+                          variant="outline" 
+                          onClick={() => {
+                            setSelectedOrder(order);
+                            setModalStatus(status);
+                          }}
+                          className="text-xs py-1 h-auto px-2 border-gray-600 text-gray-400 hover:text-pure-white"
+                        >
+                          VIEW
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
 
-        {/* Pagination Controls */}
         {totalPages > 1 && (
           <div className="p-4 border-t-2 border-gray-800 flex justify-between items-center bg-gray-900/20">
             <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">
@@ -249,7 +256,6 @@ export default function AdminOrdersPage() {
         )}
       </div>
 
-      {/* Order Detail Modal */}
       {selectedOrder && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-void-black/80 backdrop-blur-sm">
           <div className="bg-void-black border-4 border-gray-800 w-full max-w-2xl max-h-[90vh] overflow-y-auto brutalist-border-green shadow-[10px_10px_0px_#C8FF00]">
@@ -263,31 +269,21 @@ export default function AdminOrdersPage() {
                 <div>
                   <h3 className="text-xs font-bold text-acid-green uppercase mb-4 tracking-widest">Customer Info</h3>
                   <div className="space-y-2 text-pure-white font-sans">
-                    <p className="text-xl font-bold">{selectedOrder.customerInfo.fullName}</p>
-                    <p className="text-gray-400">{selectedOrder.customerInfo.email}</p>
-                    <p className="text-gray-400">{selectedOrder.customerInfo.phone}</p>
-                  </div>
-                </div>
-                <div>
-                  <h3 className="text-xs font-bold text-acid-green uppercase mb-4 tracking-widest">Shipping Address</h3>
-                  <div className="space-y-2 text-pure-white font-sans">
-                    <p>{selectedOrder.customerInfo.address}</p>
-                    <p className="font-bold">{selectedOrder.customerInfo.city}</p>
+                    <p className="text-xl font-bold">{selectedOrder.customer_name}</p>
+                    <p className="text-gray-400">{selectedOrder.customer_email}</p>
+                    <p className="text-gray-400">{selectedOrder.customer_phone}</p>
                   </div>
                 </div>
               </div>
 
               <div>
-                <h3 className="text-xs font-bold text-acid-green uppercase mb-4 tracking-widest">Items ({selectedOrder.items.length})</h3>
+                <h3 className="text-xs font-bold text-acid-green uppercase mb-4 tracking-widest">Items ({(selectedOrder.items || []).length})</h3>
                 <div className="space-y-4">
-                  {selectedOrder.items.map((item: any, i: number) => (
+                  {(selectedOrder.items || []).map((item: any, i: number) => (
                     <div key={i} className="flex justify-between items-center bg-gray-900/30 p-4 border border-gray-800">
                       <div className="flex gap-4 items-center">
-                        <div className="w-12 h-12 bg-gray-800 border border-gray-700 flex-shrink-0">
-                          {item.image && <img src={item.image} alt="" className="w-full h-full object-cover" />}
-                        </div>
                         <div>
-                          <p className="font-bold uppercase text-sm">{item.name_en}</p>
+                          <p className="font-bold uppercase text-sm">{item.name_en || item.title}</p>
                           <p className="text-xs text-gray-500">{item.size} × {item.qty}</p>
                         </div>
                       </div>
@@ -300,7 +296,7 @@ export default function AdminOrdersPage() {
               <div className="pt-6 border-t-2 border-gray-800 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
                 <div className="w-full md:w-auto">
                   <p className="text-xs font-bold text-gray-500 uppercase mb-1">Total Amount</p>
-                  <p className="text-3xl font-black text-acid-green">Rs. {selectedOrder.total.toLocaleString()}</p>
+                  <p className="text-3xl font-black text-acid-green">Rs. {selectedOrder.total?.toLocaleString()}</p>
                 </div>
                 <div className="w-full md:w-auto text-left md:text-right">
                   <p className="text-xs font-bold text-gray-500 uppercase mb-3 tracking-widest">Update Order Status</p>
@@ -321,7 +317,7 @@ export default function AdminOrdersPage() {
                       className="text-[10px] py-1 px-3 h-auto"
                       onClick={() => {
                         updateStatus(selectedOrder.id, modalStatus);
-                        setSelectedOrder({ ...selectedOrder, status: modalStatus });
+                        setSelectedOrder({ ...selectedOrder, order_status: modalStatus });
                       }}
                     >
                       UPDATE STATUS

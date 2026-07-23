@@ -1,13 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import {
   KHUSBASSADOR_CONFIG,
-  KHUSBASSADOR_SETTINGS_DOC,
   mergeKhusbassadorConfig,
   type KhusbassadorConfig,
 } from "@/lib/firestore";
@@ -109,14 +107,15 @@ export default function AdminSettingsPage() {
 
   const fetchSettings = async () => {
     try {
-      const [storeSnap, khusSnap] = await Promise.all([
-        getDoc(doc(db, "settings", "store")),
-        getDoc(doc(db, KHUSBASSADOR_SETTINGS_DOC.collection, KHUSBASSADOR_SETTINGS_DOC.id)),
+      const [storeRes, khusRes] = await Promise.all([
+        supabase.from("settings").select("data").eq("id", "store").single(),
+        supabase.from("settings").select("data").eq("id", "khusbassador").single(),
       ]);
-      if (storeSnap.exists()) {
-        setSettings(prev => ({ ...prev, ...storeSnap.data() }));
+
+      if (storeRes.data?.data) {
+        setSettings(prev => ({ ...prev, ...storeRes.data.data }));
       }
-      setKhusConfig(mergeKhusbassadorConfig(khusSnap.exists() ? khusSnap.data() : null));
+      setKhusConfig(mergeKhusbassadorConfig(khusRes.data?.data || null));
     } catch (error) {
       console.error("Error fetching settings", error);
     } finally {
@@ -132,11 +131,14 @@ export default function AdminSettingsPage() {
     e.preventDefault();
     setSaving(true);
     try {
-      await setDoc(doc(db, "settings", "store"), {
-        ...settings,
-        shippingFee: Number(settings.shippingFee),
-        updatedAt: serverTimestamp()
+      const { error } = await supabase.from("settings").upsert({
+        id: "store",
+        data: {
+          ...settings,
+          shippingFee: Number(settings.shippingFee),
+        }
       });
+      if (error) throw error;
       alert("Settings saved successfully!");
     } catch (error) {
       console.error("Error saving settings", error);
@@ -150,16 +152,18 @@ export default function AdminSettingsPage() {
     e.preventDefault();
     setSavingKhus(true);
     try {
-      const payload: Record<string, unknown> = { updatedAt: serverTimestamp() };
+      const payload: Record<string, unknown> = {};
       for (const field of khusbassadorFields) {
         payload[field.key] = Number(khusConfig[field.key]);
       }
       payload.vaultDocumentId = khusConfig.vaultDocumentId;
-      await setDoc(
-        doc(db, KHUSBASSADOR_SETTINGS_DOC.collection, KHUSBASSADOR_SETTINGS_DOC.id),
-        payload,
-        { merge: true }
-      );
+
+      const { error } = await supabase.from("settings").upsert({
+        id: "khusbassador",
+        data: payload
+      });
+
+      if (error) throw error;
       alert("Khusbassador config saved.");
     } catch (error) {
       console.error("Error saving Khusbassador config", error);
@@ -294,9 +298,6 @@ export default function AdminSettingsPage() {
                 }
                 required
               />
-              <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-gray-500">
-                Firestore doc id under <code>vault</code> for the active campus fund.
-              </p>
             </div>
           </div>
         </div>

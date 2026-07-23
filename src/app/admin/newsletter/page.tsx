@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, getDocs, doc, deleteDoc } from "firebase/firestore";
-import { db, auth } from "@/lib/firebase";
+import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
@@ -11,7 +10,7 @@ import { Loader2, Mail, Users, Send } from "lucide-react";
 interface Subscriber {
   id: string;
   email: string;
-  createdAt: any;
+  created_at?: string;
 }
 
 const TEMPLATES = {
@@ -67,9 +66,9 @@ export default function AdminNewsletterPage() {
   const fetchSubscribers = async () => {
     setLoading(true);
     try {
-      const snapshot = await getDocs(collection(db, "newsletter"));
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Subscriber));
-      setSubscribers(data);
+      const { data, error } = await supabase.from("newsletter").select("*");
+      if (error) throw error;
+      setSubscribers(data || []);
     } catch (error) {
       console.error("Error fetching subscribers", error);
     } finally {
@@ -80,7 +79,8 @@ export default function AdminNewsletterPage() {
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to remove this subscriber?")) return;
     try {
-      await deleteDoc(doc(db, "newsletter", id));
+      const { error } = await supabase.from("newsletter").delete().eq("id", id);
+      if (error) throw error;
       setSubscribers(subscribers.filter(s => s.id !== id));
     } catch (error) {
       console.error("Error deleting subscriber", error);
@@ -96,12 +96,10 @@ export default function AdminNewsletterPage() {
     setBlastResult(null);
 
     try {
-      const idToken = await auth.currentUser?.getIdToken();
       const res = await fetch("/api/newsletter/blast", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${idToken}`
         },
         body: JSON.stringify({
           subject: blastSubject,
@@ -185,7 +183,6 @@ export default function AdminNewsletterPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Editor Section */}
           <div className="lg:col-span-2 space-y-6">
             <div className="bg-void-black border-2 border-gray-800 p-6 space-y-4">
               <h2 className="font-sans font-bold uppercase text-acid-green mb-4 flex items-center gap-2">
@@ -231,7 +228,6 @@ export default function AdminNewsletterPage() {
             </div>
           </div>
 
-          {/* Templates Section */}
           <div className="space-y-6">
             <div className="bg-void-black border-2 border-gray-800 p-6">
               <h2 className="font-sans font-bold uppercase text-pure-white mb-6 border-b border-gray-800 pb-2">
@@ -260,13 +256,6 @@ export default function AdminNewsletterPage() {
                   <p className="text-[10px] text-gray-500 uppercase mt-1">Clean text-focused layout</p>
                 </button>
               </div>
-            </div>
-
-            <div className="bg-acid-green/5 border-2 border-acid-green p-6">
-              <h3 className="font-sans font-black text-acid-green uppercase text-sm mb-2">Pro Tip</h3>
-              <p className="text-xs text-gray-400 font-sans leading-relaxed uppercase">
-                Use high-contrast colors and large fonts. Gen-Z won't read your long paragraphs. Keep it aggressive.
-              </p>
             </div>
           </div>
         </div>

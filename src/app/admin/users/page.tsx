@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, getDocs, doc, deleteDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/Button";
 
 interface User {
@@ -11,6 +10,7 @@ interface User {
   email: string;
   phone?: string;
   role: string;
+  is_admin?: boolean;
 }
 
 export default function AdminUsersPage() {
@@ -24,9 +24,9 @@ export default function AdminUsersPage() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const snapshot = await getDocs(collection(db, "users"));
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User));
-      setUsers(data);
+      const { data, error } = await supabase.from("users").select("*");
+      if (error) throw error;
+      setUsers(data || []);
     } catch (error) {
       console.error("Error fetching users", error);
     } finally {
@@ -34,10 +34,30 @@ export default function AdminUsersPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this user? This does not delete their auth record.")) return;
+  const toggleAdminRole = async (user: User) => {
+    const newIsAdmin = !user.is_admin;
+    const newRole = newIsAdmin ? "admin" : "user";
+
     try {
-      await deleteDoc(doc(db, "users", id));
+      const { error } = await supabase
+        .from("users")
+        .update({ is_admin: newIsAdmin, role: newRole })
+        .eq("id", user.id);
+
+      if (error) throw error;
+
+      setUsers(users.map(u => u.id === user.id ? { ...u, is_admin: newIsAdmin, role: newRole } : u));
+    } catch (error: any) {
+      console.error("Error updating user role:", error);
+      alert("Failed to update role: " + (error.message || "Unknown error"));
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this user profile?")) return;
+    try {
+      const { error } = await supabase.from("users").delete().eq("id", id);
+      if (error) throw error;
       setUsers(users.filter(u => u.id !== id));
     } catch (error) {
       console.error("Error deleting user", error);
@@ -74,9 +94,22 @@ export default function AdminUsersPage() {
                     <td className="p-4 font-bold">{user.name}</td>
                     <td className="p-4 text-gray-400">{user.email}</td>
                     <td className="p-4 text-gray-400">{user.phone || "-"}</td>
-                    <td className="p-4 uppercase text-xs font-bold text-acid-green">{user.role || "customer"}</td>
+                    <td className="p-4 uppercase text-xs font-bold text-acid-green">
+                      {user.is_admin || user.role === "admin" ? "ADMIN" : user.role || "user"}
+                    </td>
                     <td className="p-4 text-right space-x-2">
-                      <Button variant="outline" className="text-xs py-1 h-auto px-2 border-red-500 text-red-500 hover:bg-red-500 hover:text-pure-white" onClick={() => handleDelete(user.id)}>
+                      <Button 
+                        variant="outline" 
+                        className={`text-xs py-1 h-auto px-2 ${user.is_admin ? 'border-yellow-500 text-yellow-500' : 'border-acid-green text-acid-green'}`} 
+                        onClick={() => toggleAdminRole(user)}
+                      >
+                        {user.is_admin ? "REVOKE ADMIN" : "MAKE ADMIN"}
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        className="text-xs py-1 h-auto px-2 border-red-500 text-red-500 hover:bg-red-500 hover:text-pure-white" 
+                        onClick={() => handleDelete(user.id)}
+                      >
                         DELETE
                       </Button>
                     </td>
