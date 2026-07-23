@@ -10,13 +10,14 @@ import { useAuthStore } from "@/lib/authStore";
 
 import { useSearchParams } from "next/navigation";
 
-const COMING_SOON = true;
+const COMING_SOON = process.env.NEXT_PUBLIC_COMING_SOON === "true";
 
 export function StoreLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { isAdmin: isUserAdmin, loading } = useAuthStore();
   const isAdminPath = pathname?.startsWith("/admin");
+  const isAuthPath = pathname?.startsWith("/auth");
   const isPreview = searchParams?.get("preview") === "coming-soon";
 
   if (isAdminPath) {
@@ -28,9 +29,9 @@ export function StoreLayout({ children }: { children: React.ReactNode }) {
     return null; // Or a loading spinner
   }
 
-  // If coming soon is on, show it UNLESS the user is an admin
+  // If coming soon is on, show it UNLESS the user is an admin or on an auth route (/auth/login)
   // Admins can force preview with ?preview=coming-soon
-  if ((COMING_SOON && !isUserAdmin) || isPreview) {
+  if ((COMING_SOON && !isUserAdmin && !isAuthPath) || isPreview) {
     return <ComingSoon />;
   }
 

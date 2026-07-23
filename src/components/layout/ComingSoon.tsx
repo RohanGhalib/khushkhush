@@ -144,6 +144,14 @@ export function ComingSoon() {
               Error! Try again.
             </p>
           )}
+          <div className="mt-8 text-center">
+            <a 
+              href="/auth/login" 
+              className="inline-block font-sans font-bold text-xs uppercase tracking-widest text-void-black/70 hover:text-void-black border-b border-void-black/40 hover:border-void-black transition-colors"
+            >
+              Sign In / Admin Access →
+            </a>
+          </div>
         </div>
       </div>
     </div>
