@@ -1,77 +1,21 @@
 import { Metadata } from "next";
 import { ShopGrid } from "@/components/store/ShopGrid";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const metadata: Metadata = {
   title: "Shop All",
   description: "Browse the complete KhushKhush archive. Exclusive Gen-z streetwear and meme-inspired drops.",
 };
 
-// ISR: revalidate every hour. Shoppers always get near-instant page loads
-// from CDN cache, while the data stays fresh. 1000 concurrent visitors
-// will hit the cache, not Firestore.
 export const revalidate = 3600;
 
-interface FirestoreProduct {
-  slug: string;
-  name_en: string;
-  name_ur: string;
-  price: number;
-  status: string;
-  images: string[];
-  [key: string]: unknown;
-}
-
-function parseFirestoreValue(value: Record<string, unknown>): unknown {
-  if (!value) return null;
-  if ("stringValue" in value) return value.stringValue;
-  if ("integerValue" in value) return parseInt(value.integerValue as string, 10);
-  if ("doubleValue" in value) return value.doubleValue;
-  if ("booleanValue" in value) return value.booleanValue;
-  if ("arrayValue" in value) {
-    const arr = value.arrayValue as { values?: Record<string, unknown>[] };
-    return (arr.values ?? []).map(parseFirestoreValue);
-  }
-  if ("mapValue" in value) {
-    const map = value.mapValue as { fields?: Record<string, Record<string, unknown>> };
-    const fields = map.fields ?? {};
-    return Object.fromEntries(
-      Object.entries(fields).map(([k, v]) => [k, parseFirestoreValue(v)])
-    );
-  }
-  return null;
-}
-
-async function fetchProducts(): Promise<FirestoreProduct[]> {
-  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-  const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-
+async function fetchProducts() {
   try {
-    // Firestore REST API — works in Server Components without the gRPC client SDK
-    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/products?key=${apiKey}&pageSize=200`;
-    const res = await fetch(url, {
-      next: { revalidate: 3600 },
-    });
-
-    if (!res.ok) return [];
-
-    const data = await res.json();
-    const docs: FirestoreProduct[] = [];
-
-    for (const doc of data.documents ?? []) {
-      const fields = doc.fields ?? {};
-      const status = (fields.status as { stringValue?: string })?.stringValue;
-      // Filter out drafts server-side
-      if (status === "Draft") continue;
-
-      const slug = doc.name.split("/").pop() as string;
-      const parsed: Record<string, unknown> = { slug };
-      for (const [key, value] of Object.entries(fields)) {
-        parsed[key] = parseFirestoreValue(value as Record<string, unknown>);
-      }
-      docs.push(parsed as FirestoreProduct);
-    }
-
-    return docs;
+    const { data } = await supabaseAdmin
+      .from("products")
+      .select("*")
+      .neq("status", "Draft");
+    return data || [];
   } catch (error) {
     console.error("Failed to fetch products for shop page:", error);
     return [];

@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { doc, setDoc, serverTimestamp, addDoc, collection } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/Button";
 
 export default function SeedDatabasePage() {
@@ -15,125 +14,75 @@ export default function SeedDatabasePage() {
     setLoading(true);
     setLogs([]);
     try {
-      addLog("Starting seeding process...");
+      addLog("Starting Supabase seeding process...");
 
-      // 1. Seed Products
-      const products = [
+      const products: any[] = [
         {
           slug: "dunya-gol-hai",
-          name_en: "Dunya Gol Hai Tee",
-          name_ur: "دنیا گول ہے",
+          title: "Dunya Gol Hai Tee",
           description: "<p>The classic KhUShKhUSh tee. Heavyweight cotton, brutalist print.</p>",
           price: 3500,
-          comparePrice: 4500,
+          compare_at_price: 4500,
           images: [],
           status: "Active",
-          featured: true,
-          sizes: { barray_log: 10, darmiane: 15, nojawan: 5, mote_afraad: 2 },
-          tags: ["meme", "trending"]
+          stock: 30,
+          category: "t-shirts",
+          collection_slug: "meme",
+          sizes: ["S", "M", "L", "XL"]
         },
         {
           slug: "khushkhush-logo-hoodie",
-          name_en: "Logo Hoodie",
-          name_ur: "خوش خوش ہوڈی",
+          title: "Logo Hoodie",
           description: "<p>Winter essential. Thick fleece with acid-green logo.</p>",
           price: 5500,
-          comparePrice: null,
+          compare_at_price: 0,
           images: [],
           status: "Active",
-          featured: true,
-          sizes: { barray_log: 5, darmiane: 8, nojawan: 2, mote_afraad: 0 },
-          tags: ["winter", "logo"]
+          stock: 15,
+          category: "hoodies",
+          collection_slug: "logo",
+          sizes: ["M", "L", "XL"]
         },
         {
           slug: "anime-eyes",
-          name_en: "Anime Eyes",
-          name_ur: "انیمی آنکھیں",
+          title: "Anime Eyes Tee",
           description: "<p>Limited edition anime collection drop.</p>",
           price: 4000,
-          comparePrice: null,
+          compare_at_price: 0,
           images: [],
           status: "Sold Out",
-          featured: false,
-          sizes: { barray_log: 0, darmiane: 0, nojawan: 0, mote_afraad: 0 },
-          tags: ["anime", "limited"]
+          stock: 0,
+          category: "t-shirts",
+          collection_slug: "anime",
+          sizes: ["S", "M", "L"]
         }
       ];
 
       for (const p of products) {
-        await setDoc(doc(db, "products", p.slug), {
-          ...p,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        });
-        addLog(`Created product: ${p.slug}`);
+        const { error } = await supabase.from("products").upsert(p, { onConflict: "slug" });
+        if (error) throw error;
+        addLog(`Created/updated product: ${p.slug}`);
       }
 
-      // 2. Seed Collections
-      const collections = [
-        { slug: "meme", title: "MEME", image: "" },
-        { slug: "anime", title: "ANIME", image: "" },
-        { slug: "movie", title: "MOVIE", image: "" },
-        { slug: "frame", title: "FRAME", image: "" }
+      const collections: any[] = [
+        { slug: "meme", title: "MEME", title_en: "Meme Culture", description: "Vibe meme drops", image: "" },
+        { slug: "anime", title: "ANIME", title_en: "Anime Drops", description: "Otaku gear", image: "" },
+        { slug: "movie", title: "MOVIE", title_en: "Movie Merch", description: "Cinema classics", image: "" },
+        { slug: "frame", title: "FRAME", title_en: "Frame Series", description: "Artistic frames", image: "" }
       ];
 
       for (const c of collections) {
-        await setDoc(doc(db, "collections", c.slug), {
-          ...c,
-          createdAt: serverTimestamp()
-        });
-        addLog(`Created collection: ${c.slug}`);
+        const { error } = await supabase.from("collections").upsert(c, { onConflict: "slug" });
+        if (error) throw error;
+        addLog(`Created/updated collection: ${c.slug}`);
       }
 
-      // 3. Seed Users
-      const users = [
-        { id: "user_1", name: "Ahmad Khan", email: "ahmad@example.com", phone: "03001234567", role: "customer" },
-        { id: "user_2", name: "Zainab Ali", email: "zainab@example.com", phone: "03219876543", role: "customer" }
-      ];
+      await supabase.from("vault").upsert({ id: "khush-fund", balance: 15000, goal: 50000 } as any);
+      addLog("Seeded Vault default stats");
 
-      for (const u of users) {
-        await setDoc(doc(db, "users", u.id), {
-          ...u,
-          createdAt: serverTimestamp()
-        });
-        addLog(`Created user: ${u.email}`);
-      }
-
-      // 4. Seed Orders
-      const orders = [
-        {
-          userId: "user_1",
-          customerInfo: { fullName: "Ahmad Khan", phone: "03001234567", address: "DHA Phase 6", city: "Lahore", postalCode: "54000" },
-          items: [{ name_en: "Dunya Gol Hai Tee", price: 3500, qty: 1, size: "Large" }],
-          subtotal: 3500,
-          shipping: 200,
-          total: 3700,
-          status: "Pending",
-          paymentMethod: "COD"
-        },
-        {
-          userId: "user_2",
-          customerInfo: { fullName: "Zainab Ali", phone: "03219876543", address: "Clifton Block 5", city: "Karachi", postalCode: "75600" },
-          items: [{ name_en: "Logo Hoodie", price: 5500, qty: 2, size: "Medium" }],
-          subtotal: 11000,
-          shipping: 200,
-          total: 11200,
-          status: "Shipped",
-          paymentMethod: "COD"
-        }
-      ];
-
-      for (const o of orders) {
-        const docRef = await addDoc(collection(db, "orders"), {
-          ...o,
-          createdAt: serverTimestamp()
-        });
-        addLog(`Created order: ${docRef.id}`);
-      }
-
-      addLog("✅ FIREBASE SEEDING COMPLETE!");
+      addLog("✅ SUPABASE DATABASE SEEDING COMPLETE!");
     } catch (error: any) {
-      addLog(`❌ Error: ${error.message}`);
+      addLog(`❌ Error: ${error.message || JSON.stringify(error)}`);
     } finally {
       setLoading(false);
     }
@@ -141,18 +90,17 @@ export default function SeedDatabasePage() {
 
   return (
     <div className="p-8 max-w-3xl mx-auto">
-      <h1 className="font-twenly text-4xl text-pure-white uppercase mb-8">DATABASE SEEDER</h1>
+      <h1 className="font-twenly text-4xl text-pure-white uppercase mb-8">SUPABASE DATABASE SEEDER</h1>
       
       <div className="bg-red-900/20 border-2 border-red-500 p-6 mb-8">
         <h2 className="font-sans font-bold text-red-500 uppercase mb-2">Warning</h2>
         <p className="text-pure-white font-sans text-sm">
-          Clicking this will inject dummy data directly into your production Firestore database.
-          Make sure your security rules allow writes before proceeding.
+          Clicking this will inject initial products, collections, and settings into your Supabase database.
         </p>
       </div>
 
       <Button onClick={seedData} variant="primary" className="w-full mb-8 h-16 text-xl" disabled={loading}>
-        {loading ? "SEEDING..." : "INJECT DUMMY DATA"}
+        {loading ? "SEEDING..." : "INJECT DUMMY DATA INTO SUPABASE"}
       </Button>
 
       {logs.length > 0 && (

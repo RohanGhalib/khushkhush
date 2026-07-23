@@ -1,40 +1,67 @@
 "use client";
 
 import { useEffect } from "react";
-import { onAuthStateChanged } from "firebase/auth";
 import posthog from "posthog-js";
-import { auth } from "@/lib/firebase";
+import { supabase } from "@/lib/supabase";
 import { useAuthStore } from "@/lib/authStore";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { setUser, setLoading, setIsAdmin } = useAuthStore();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setUser(user);
-      if (user) {
-        try {
-          const tokenResult = await user.getIdTokenResult();
-          const hasAdminClaim = !!tokenResult.claims.admin;
-          setIsAdmin(hasAdminClaim);
-        } catch (error) {
-          console.error("Error fetching claims:", error);
-          setIsAdmin(false);
-        }
+    // Initial session check
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      if (currentUser) {
+        checkAdminStatus(currentUser.id);
+      } else {
+        setIsAdmin(false);
+        setLoading(false);
+      }
+    });
+
+    // Auth listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+
+      if (currentUser) {
+        await checkAdminStatus(currentUser.id);
         if (posthog.__loaded) {
-          posthog.identify(user.uid, {
-            email: user.email || undefined,
-            name: user.displayName || undefined,
+          posthog.identify(currentUser.id, {
+            email: currentUser.email,
+            name: currentUser.user_metadata?.full_name || currentUser.user_metadata?.name,
           });
         }
       } else {
         setIsAdmin(false);
         if (posthog.__loaded) posthog.reset();
+        setLoading(false);
       }
-      setLoading(false);
     });
 
-    return () => unsubscribe();
+    async function checkAdminStatus(userId: string) {
+      try {
+        const { data: profile } = await supabase
+          .from("users")
+          .select("role, is_admin")
+          .eq("id", userId)
+          .single();
+
+        const isAdminUser = !!(profile?.is_admin || profile?.role === "admin");
+        setIsAdmin(isAdminUser);
+      } catch (err) {
+        console.error("Error verifying admin status:", err);
+        setIsAdmin(false);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [setUser, setLoading, setIsAdmin]);
 
   return <>{children}</>;

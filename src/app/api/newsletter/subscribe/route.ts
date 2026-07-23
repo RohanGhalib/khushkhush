@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { rateLimit } from "@/lib/rateLimit";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
 
 export async function POST(req: Request) {
   try {
-    // Rate Limiting: 5 requests per hour per IP
     const ip = req.headers.get("x-forwarded-for") || "anonymous";
     const { success } = await rateLimit(`newsletter-${ip}`, 5, 3600000);
     
@@ -20,41 +20,13 @@ export async function POST(req: Request) {
     }
 
     const docId = email.toLowerCase().trim();
-    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-    const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
-    if (!projectId || !apiKey) {
-      console.error("Missing Firebase environment variables");
-      return NextResponse.json({ error: "Configuration error" }, { status: 500 });
-    }
+    const { error } = await supabaseAdmin
+      .from("newsletter")
+      .upsert({ email: docId } as any, { onConflict: "email" });
 
-    // 1. Check if subscriber already exists
-    const checkUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/newsletter/${docId}?key=${apiKey}`;
-    const checkRes = await fetch(checkUrl);
-
-    if (checkRes.ok) {
-      // Document exists -> already subscribed
-      return NextResponse.json({ success: true, alreadySubscribed: true });
-    }
-
-    // 2. If not found (404), create it
-    // Use PATCH to create/update
-    const updateUrl = `${checkUrl}&updateMask.fieldPaths=email&updateMask.fieldPaths=createdAt`;
-    
-    const res = await fetch(updateUrl, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        fields: {
-          email: { stringValue: docId },
-          createdAt: { timestampValue: new Date().toISOString() },
-        },
-      }),
-    });
-
-    if (!res.ok) {
-      const errData = await res.json();
-      console.error("Firestore REST Error:", errData);
+    if (error) {
+      console.error("Supabase Newsletter Insert Error:", error);
       return NextResponse.json({ error: "Failed to subscribe" }, { status: 500 });
     }
 

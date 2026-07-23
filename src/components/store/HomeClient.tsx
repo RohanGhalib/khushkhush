@@ -17,97 +17,96 @@ interface HomeClientProps {
 export function HomeClient({ products, collections }: HomeClientProps) {
   return (
     <main className="flex flex-col min-h-screen">
-      {/* UPGRADED HERO SECTION */}
-      {/* UPGRADED HERO SECTION */}
-      <section className="relative flex flex-col min-h-screen bg-void-black border-b-8 border-acid-green overflow-hidden">
-        {/* Background Noise/Grid */}
-        <div className="absolute inset-0 opacity-10 pointer-events-none">
-          <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(var(--acid-green) 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
-        </div>
-
-        {/* Massive Background Text */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 select-none pointer-events-none opacity-[0.03] whitespace-nowrap overflow-hidden w-full text-center">
-          <span className="font-twenly text-[40vw] font-black text-acid-green leading-none">
-            KK.
-          </span>
-        </div>
-
-        {/* Content Container */}
-        <div className="relative z-10 flex-1 w-full max-w-7xl mx-auto px-6 pt-32 pb-24 flex flex-col items-center justify-center">
-          {/* Top Label */}
-          <div className="bg-acid-green text-void-black font-sans font-black px-4 py-1 mb-8 uppercase tracking-[0.3em] text-xs md:text-sm animate-fade-in-up">
-            Aggressive Streetwear Culture
+      {/* HIGH-ENERGY BRUTALIST HERO SECTION (MATCHING COMING SOON DESIGN) */}
+      <section className="relative flex flex-col min-h-[90vh] bg-acid-green text-void-black border-b-8 border-void-black overflow-hidden selection:bg-void-black selection:text-acid-green">
+        
+        {/* Brutalist Background Geometric Lines & Marquees */}
+        <div className="absolute inset-0 pointer-events-none select-none overflow-hidden">
+          {/* Angle Background Slashes */}
+          <div className="absolute inset-0 opacity-15">
+            <div className="absolute top-0 left-0 w-full h-20 bg-void-black -rotate-1 transform origin-top-left" />
+            <div className="absolute bottom-0 right-0 w-full h-20 bg-void-black -rotate-1 transform origin-bottom-right" />
+            <div className="absolute top-1/4 -left-20 w-[120%] h-36 border-y-4 border-void-black rotate-3" />
+            <div className="absolute bottom-1/4 -left-20 w-[120%] h-36 border-y-4 border-void-black -rotate-2" />
           </div>
 
-          {/* Staggered Main Heading */}
-          <div className="relative mb-12 w-full flex justify-center">
-            <div className="relative">
-              <h1 className="font-twenly text-pure-white leading-[0.9] tracking-tighter flex flex-col items-center" style={{ fontSize: 'clamp(70px, 20vw, 240px)' }}>
-                <span className="block transform -translate-x-4 md:-translate-x-12 hover:text-acid-green transition-colors cursor-default">
-                  KhUSh
-                </span>
-                <span className="block transform translate-x-4 md:translate-x-12 text-acid-green">
-                  KhUSh.
-                </span>
-              </h1>
-              
-              {/* Floating Brutalist Badge - Positioned over the 'h' */}
-              <div className="absolute -top-8 -right-8 md:-top-12 md:-right-16 bg-pure-white text-void-black p-3 md:p-4 rotate-12 border-4 border-acid-green hidden sm:block z-20 shadow-[8px_8px_0px_rgba(200,255,0,0.5)]">
-                <p className="font-twenly font-black text-xl md:text-2xl leading-none">
-                  BVIBE<br/>EST. 2024
-                </p>
-              </div>
+          {/* Background Marquee 1 (Top) */}
+          <div className="absolute top-12 left-0 w-full overflow-hidden whitespace-nowrap opacity-20">
+            <div className="inline-block font-twenly text-6xl md:text-9xl text-void-black font-black uppercase" style={{ animation: 'marquee 28s linear infinite' }}>
+              KhushKhush. KhushKhush. KhushKhush. KhushKhush. KhushKhush. KhushKhush. KhushKhush. KhushKhush.
             </div>
           </div>
 
-          <div className="flex flex-col md:flex-row items-center gap-12 md:gap-16 w-full justify-between mt-8">
-            <div className="flex-1 text-center md:text-left">
-              <h2 className="font-urdu text-5xl md:text-7xl text-pure-white font-bold leading-[1.2] mb-4">
-                نہ شرم، نہ لحاظ<br/>
-                <span className="text-acid-green">صرف انداز</span>
-              </h2>
+          {/* Background Marquee 2 (Bottom) */}
+          <div className="absolute bottom-12 left-0 w-full overflow-hidden whitespace-nowrap opacity-20">
+            <div className="inline-block font-twenly text-6xl md:text-9xl text-void-black font-black uppercase" style={{ animation: 'marquee-reverse 28s linear infinite' }}>
+              GEN-Z MEME CULTURE. NO MID CLOTHES. DROP 01 LIVE. GEN-Z MEME CULTURE. NO MID CLOTHES.
             </div>
+          </div>
 
-            <div className="flex flex-col items-center md:items-end gap-6">
-              <p className="text-pure-white/80 text-lg md:text-xl font-bold uppercase tracking-widest text-center md:text-right max-w-xs leading-relaxed">
-                Forget the mid. Wear the madness.
-              </p>
-              <Link href="/shop" className="group relative">
-                <div className="absolute inset-0 bg-pure-white translate-x-2 translate-y-2 group-hover:translate-x-0 group-hover:translate-y-0 transition-transform" />
-                <button className="relative bg-acid-green text-void-black font-twenly text-3xl md:text-4xl px-8 md:px-12 py-4 md:py-5 uppercase border-2 border-void-black group-hover:-translate-x-1 group-hover:-translate-y-1 transition-transform">
-                  Shop Drop 01 &rarr;
-                </button>
-              </Link>
-            </div>
+          {/* Floating Brutalist Accents */}
+          <div className="absolute top-[12%] right-[8%] w-12 h-12 bg-void-black rotate-12 animate-bounce hidden md:block" />
+          <div className="absolute bottom-[18%] left-[6%] w-16 h-16 border-4 border-void-black -rotate-12 hidden md:block" />
+          <div className="absolute top-1/2 right-[4%] font-twenly text-void-black text-5xl font-black rotate-90 opacity-20 hidden lg:block tracking-widest">
+            DROP 01 LIVE
           </div>
         </div>
 
-        {/* Diagonal Marquee System - Optimized for Mobile */}
-        <div className="relative w-full mt-auto pt-16 pb-16 md:pt-40 md:pb-40 overflow-visible select-none">
-          {/* Secondary Patterned Stripe */}
-          <div 
-            className="absolute top-1/2 left-[-25vw] w-[150vw] h-14 md:h-20 bg-acid-green -rotate-2 md:-rotate-6 border-y-2 md:border-y-4 border-void-black z-10 opacity-60 -translate-y-1/2"
-            style={{ 
-              backgroundImage: 'radial-gradient(var(--void-black) 2px, transparent 2px)', 
-              backgroundSize: '10px 10px' 
-            }} 
-          />
+        {/* Hero Main Content Container */}
+        <div className="relative z-10 flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 pt-24 pb-16 flex flex-col items-center justify-center text-center">
 
-          {/* Primary Text Marquee */}
-          <div className="relative left-[-25vw] w-[150vw] bg-acid-green text-void-black py-3 md:py-5 marquee-container border-y-4 md:border-y-8 border-void-black font-urdu text-3xl md:text-5xl font-black z-20 overflow-hidden rotate-1 md:rotate-2 shadow-[0px_0px_60px_rgba(0,0,0,0.6)]">
-            <div className="marquee-content space-x-12 px-4 flex items-center">
-              <span>دنیا گول ہے منافق ماحول ہے</span>
-              <span className="font-twenly text-4xl md:text-6xl italic opacity-30">X X X</span>
-              <span>صرف اصلی لوگ</span>
-              <span className="font-twenly text-4xl md:text-6xl italic opacity-30">X X X</span>
-              <span>کوئی ڈر نہیں</span>
-              <span className="font-twenly text-4xl md:text-6xl italic opacity-30">X X X</span>
-              <span>KHUSHKHUSH VIBE</span>
-              <span className="font-twenly text-4xl md:text-6xl italic opacity-30">X X X</span>
-              <span>دنیا گول ہے منافق ماحول ہے</span>
-              <span className="font-twenly text-4xl md:text-6xl italic opacity-30">X X X</span>
-              <span>صرف اصلی لوگ</span>
+          {/* Iconic Coming Soon Style Logo Box */}
+          <div className="bg-void-black px-6 sm:px-12 py-4 sm:py-6 mb-6 sm:mb-8 transform -rotate-2 hover:rotate-0 transition-transform duration-300 cursor-default max-w-fit mx-auto border-4 border-void-black shadow-[10px_10px_0px_rgba(0,0,0,0.85)]">
+            <h1 className="font-twenly text-5xl sm:text-7xl md:text-9xl text-acid-green font-black tracking-tighter uppercase whitespace-nowrap leading-none">
+              KhushKhush.
+            </h1>
+          </div>
+
+          {/* English Subtitle */}
+          <div className="flex flex-col items-center gap-2 max-w-3xl">
+            <p className="font-twenly text-lg sm:text-2xl md:text-3xl text-void-black font-black uppercase tracking-widest mt-1">
+              FORGET THE MID. WEAR THE MADNESS.
+            </p>
+          </div>
+
+          {/* Badges Row */}
+          <div className="mt-8 flex flex-wrap justify-center gap-3 sm:gap-4">
+            <div className="bg-void-black text-acid-green font-sans font-black px-4 py-2 uppercase text-xs sm:text-sm border-2 border-void-black shadow-[4px_4px_0px_#000000]">
+              BVIBE APPROVED
             </div>
+            <div className="bg-void-black text-acid-green font-sans font-black px-4 py-2 uppercase text-xs sm:text-sm border-2 border-void-black shadow-[4px_4px_0px_#000000]">
+              EST. 2026
+            </div>
+            <div className="bg-void-black text-acid-green font-sans font-black px-4 py-2 uppercase text-xs sm:text-sm border-2 border-void-black shadow-[4px_4px_0px_#000000]">
+              GEN-Z MEME CULTURE
+            </div>
+          </div>
+
+          {/* Call To Action Button */}
+          <Link href="/shop" className="mt-10 group relative inline-block">
+            <div className="absolute inset-0 bg-void-black translate-x-2 translate-y-2 group-hover:translate-x-0 group-hover:translate-y-0 transition-transform duration-200" />
+            <div className="relative bg-pure-white border-4 border-void-black px-8 sm:px-12 py-4 sm:py-5 flex items-center gap-3 group-hover:-translate-x-1 group-hover:-translate-y-1 transition-transform duration-200">
+              <span className="font-twenly text-void-black text-2xl sm:text-4xl font-black uppercase tracking-tight">
+                SHOP DROP 01 &rarr;
+              </span>
+            </div>
+          </Link>
+        </div>
+
+        {/* Animated Marquee Strip at Bottom of Hero */}
+        <div className="relative w-full bg-void-black text-acid-green py-4 border-t-4 border-void-black text-2xl md:text-4xl font-black z-20 overflow-hidden whitespace-nowrap shadow-[0px_-4px_20px_rgba(0,0,0,0.5)]">
+          <div className="marquee-content space-x-12 px-4 flex items-center">
+            <span className="font-urdu">دنیا گول ہے منافق ماحول ہے</span>
+            <span className="font-twenly text-3xl md:text-5xl italic opacity-40 text-pure-white">X X X</span>
+            <span className="font-urdu">صرف اصلی لوگ</span>
+            <span className="font-twenly text-3xl md:text-5xl italic opacity-40 text-pure-white">X X X</span>
+            <span className="font-urdu">کوئی ڈر نہیں</span>
+            <span className="font-twenly text-3xl md:text-5xl italic opacity-40 text-pure-white">X X X</span>
+            <span className="font-twenly text-3xl md:text-5xl uppercase tracking-wider font-black text-acid-green">KHUSHKHUSH VIBE</span>
+            <span className="font-twenly text-3xl md:text-5xl italic opacity-40 text-pure-white">X X X</span>
+            <span className="font-urdu">دنیا گول ہے منافق ماحول ہے</span>
+            <span className="font-twenly text-3xl md:text-5xl italic opacity-40 text-pure-white">X X X</span>
+            <span className="font-urdu">صرف اصلی لوگ</span>
           </div>
         </div>
       </section>

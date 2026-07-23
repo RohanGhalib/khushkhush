@@ -6,8 +6,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { LayoutDashboard, Package, Tag, Users, Settings, Mail, LogOut, Ticket, ShoppingCart, UserCheck } from "lucide-react";
-import { signOut } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { supabase } from "@/lib/supabase";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, isAdmin } = useAuthStore();
@@ -21,7 +20,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       if (!user) {
         router.push("/auth/login");
       } else if (!isAdmin) {
-        // Not an admin, redirect to customer account
         router.push("/account");
       }
     }
@@ -84,7 +82,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="p-4 border-t border-gray-800">
           <button
             onClick={async () => {
-              await signOut(auth);
+              await supabase.auth.signOut();
               router.push("/auth/login");
             }}
             className="flex items-center gap-3 px-4 py-3 font-sans font-bold uppercase text-red-500 hover:bg-red-500/10 w-full transition-colors rounded-sm"

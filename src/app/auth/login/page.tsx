@@ -1,50 +1,29 @@
 "use client";
 
 import { useState } from "react";
-import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
-import { auth } from "@/lib/firebase";
-import { createUserDocument } from "@/lib/firestore";
-import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/Button";
 
 export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
   const handleGoogleLogin = async () => {
     setError("");
     setLoading(true);
 
     try {
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
+      const redirectTo = `${window.location.origin}/account`;
+      const { error: signInError } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo,
+        },
+      });
 
-      if (user) {
-        // Ensure user document exists
-        const isNewUser = await createUserDocument(user.uid, { 
-          email: user.email || "", 
-          name: user.displayName || "Unknown", 
-        });
-
-        if (isNewUser) {
-          // Send Welcome Email
-          fetch("/api/emails/welcome", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
-              customerEmail: user.email, 
-              customerName: user.displayName || "Grip Master" 
-            }),
-          }).catch(console.error);
-        }
-      }
-
-      router.push("/account");
+      if (signInError) throw signInError;
     } catch (err: any) {
       setError(err.message || "Failed to log in with Google.");
-    } finally {
       setLoading(false);
     }
   };

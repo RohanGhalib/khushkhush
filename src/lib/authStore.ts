@@ -1,5 +1,7 @@
 import { create } from 'zustand';
-import { User } from 'firebase/auth';
+import { User as SupabaseUser } from '@supabase/supabase-js';
+
+export type User = SupabaseUser | any;
 
 interface AuthState {
   user: User | null;

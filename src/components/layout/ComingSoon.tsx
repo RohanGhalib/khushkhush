@@ -87,7 +87,7 @@ export function ComingSoon() {
             BVIBE APPROVED
           </div>
           <div className="bg-void-black text-acid-green font-sans font-bold px-3 sm:px-4 py-1.5 sm:py-2 uppercase text-[10px] sm:text-sm border-2 border-void-black">
-            EST. 2024
+            EST. 2026
           </div>
         </div>
 

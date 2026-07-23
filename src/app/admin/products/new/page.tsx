@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { doc, setDoc, serverTimestamp, collection, getDocs } from "firebase/firestore";
-import { db, auth } from "@/lib/firebase";
+import { supabase } from "@/lib/supabase";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { ImageUploader } from "@/components/admin/ImageUploader";
@@ -13,24 +12,6 @@ export default function NewProductPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [collections, setCollections] = useState<any[]>([]);
-
-  const triggerRevalidation = async (paths: string[]) => {
-    try {
-      const idToken = await auth.currentUser?.getIdToken();
-      if (!idToken) return;
-
-      await fetch("/api/revalidate", {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${idToken}`
-        },
-        body: JSON.stringify({ paths }),
-      });
-    } catch (err) {
-      console.error("Revalidation failed:", err);
-    }
-  };
 
   const [formData, setFormData] = useState({
     name_en: "",
@@ -55,8 +36,8 @@ export default function NewProductPage() {
 
   useEffect(() => {
     const fetchCollections = async () => {
-      const snapshot = await getDocs(collection(db, "collections"));
-      setCollections(snapshot.docs.map(doc => ({ slug: doc.id, ...doc.data() })));
+      const { data } = await supabase.from("collections").select("*");
+      setCollections(data || []);
     };
     fetchCollections();
   }, []);
@@ -89,25 +70,26 @@ export default function NewProductPage() {
     setLoading(true);
 
     try {
-      const productRef = doc(db, "products", formData.slug);
-      await setDoc(productRef, {
-        ...formData,
+      const payload = {
+        slug: formData.slug,
+        title: formData.name_en,
+        description: formData.description,
         price: Number(formData.price),
-        comparePrice: formData.comparePrice ? Number(formData.comparePrice) : null,
-        tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean),
-        colors: formData.colors.split(',').map(c => c.trim()).filter(Boolean),
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
+        compare_at_price: formData.comparePrice ? Number(formData.comparePrice) : null,
+        images: formData.images,
+        status: formData.status,
+        collection_slug: formData.collectionSlug,
+        sizes: formData.sizes,
+      };
 
-      // Trigger instant cache refresh for storefront
-      await triggerRevalidation(["/", "/shop", `/product/${formData.slug}`]);
+      const { error } = await supabase.from("products").upsert(payload, { onConflict: "slug" });
+      if (error) throw error;
 
-      alert("Product created!");
+      alert("Product created in Supabase!");
       router.push("/admin/products");
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert("Failed to create product");
+      alert("Failed to create product: " + (error.message || "Unknown error"));
     } finally {
       setLoading(false);
     }
@@ -122,7 +104,6 @@ export default function NewProductPage() {
 
       <form onSubmit={handleSubmit} className="space-y-8">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Main Info */}
           <div className="space-y-6">
             <div className="bg-card-bg p-6 border-2 border-gray-800 space-y-4">
               <h2 className="font-sans font-bold uppercase text-acid-green mb-4">General</h2>
@@ -160,7 +141,6 @@ export default function NewProductPage() {
             </div>
           </div>
 
-          {/* Pricing & Inventory */}
           <div className="space-y-6">
             <div className="bg-card-bg p-6 border-2 border-gray-800 space-y-4">
               <h2 className="font-sans font-bold uppercase text-acid-green mb-4">Pricing</h2>
@@ -172,28 +152,6 @@ export default function NewProductPage() {
                 <div>
                   <label className="block text-xs font-bold uppercase mb-2 text-gray-400">Compare-at Price</label>
                   <Input name="comparePrice" type="number" value={formData.comparePrice} onChange={handleChange} />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-card-bg p-6 border-2 border-gray-800 space-y-4">
-              <h2 className="font-sans font-bold uppercase text-acid-green mb-4">Inventory (Sizes)</h2>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold uppercase mb-2 text-gray-400 font-urdu">بڑے لوگ (Large)</label>
-                  <Input type="number" value={formData.sizes.barray_log} onChange={(e) => handleSizeChange("barray_log", e.target.value)} />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold uppercase mb-2 text-gray-400 font-urdu">درمیانے افراد (Medium)</label>
-                  <Input type="number" value={formData.sizes.darmiane} onChange={(e) => handleSizeChange("darmiane", e.target.value)} />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold uppercase mb-2 text-gray-400 font-urdu">نوجوان (Small)</label>
-                  <Input type="number" value={formData.sizes.nojawan} onChange={(e) => handleSizeChange("nojawan", e.target.value)} />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold uppercase mb-2 text-gray-400 font-urdu">موٹے افراد (XL)</label>
-                  <Input type="number" value={formData.sizes.mote_afraad} onChange={(e) => handleSizeChange("mote_afraad", e.target.value)} />
                 </div>
               </div>
             </div>
@@ -228,27 +186,6 @@ export default function NewProductPage() {
                     <option key={col.slug} value={col.slug}>{col.title_en || col.title}</option>
                   ))}
                 </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase mb-2 text-gray-400">Tags (Comma separated)</label>
-                <Input name="tags" value={formData.tags} onChange={handleChange} placeholder="meme, cool, trending" />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase mb-2 text-gray-400">Colors (Comma separated)</label>
-                <Input name="colors" value={formData.colors} onChange={handleChange} placeholder="Black, White, Neon" />
-              </div>
-
-              <div className="flex items-center gap-3 mt-4">
-                <input 
-                  type="checkbox" 
-                  name="featured" 
-                  checked={formData.featured} 
-                  onChange={handleChange}
-                  className="w-5 h-5 accent-acid-green"
-                />
-                <label className="text-sm font-bold uppercase text-pure-white">Featured Product</label>
               </div>
             </div>
           </div>
